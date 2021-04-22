@@ -1,17 +1,10 @@
 # helper functions for LinCDE
 
-library("Rcpp")
-library("glmnet")
-library("gbm")
-library("splines")
-library("collections")
-
-
 # function: count the samples in each bin
-# input: 
+# input:
   # yIndex: vector of response indices
   # numberBin: number of bins
-# output: 
+# output:
   # counts: number of samples in each bin
 
 countIndex = function(yIndex, numberBin) {
@@ -21,7 +14,7 @@ countIndex = function(yIndex, numberBin) {
 }
 
 
-# function: compute the regularization parameter corresponding to the 
+# function: compute the regularization parameter corresponding to the
 # input:
   # z: sufficient statistics (numberBin by k matrix)
   # counts: number of samples in each bin
@@ -39,27 +32,27 @@ countIndex = function(yIndex, numberBin) {
 dfToLambda = function(z, counts, order, df, numberBin, penalty = NULL){
   if(order <= df){return (0)}
   if(df == 0){return (1e9)}
-  
+
   # estimate the weight
-  model = glm(counts ~ z, family = "poisson")
+  model = suppressWarnings(glm(counts ~ z, family = "poisson"))
   weight = model$fitted.values/numberBin
-  
-  Hessian = 2 * (t(z) %*% diag(weight) %*% z - t(z) %*% weight %*% weight %*% z * numberBin / sum(counts)) 
+
+  Hessian = 2 * (t(z) %*% diag(weight) %*% z - t(z) %*% weight %*% weight %*% z * numberBin / sum(counts))
   svdHessian = svd(Hessian)
   Omega = diag(1/sqrt(svdHessian$d+1e-3)) %*% t(svdHessian$u) %*% diag(penalty) %*% svdHessian$u %*% diag(1/sqrt(svdHessian$d+1e-3))
   eigenVal = svd(Omega)$d
 
-  lambdaMax = sum(1/eigenVal)/df; lambdaMin = 0; lambda = (lambdaMax+lambdaMin)/2; value =  sum(1/(1+eigenVal*lambda))    
+  lambdaMax = sum(1/eigenVal)/df; lambdaMin = 0; lambda = (lambdaMax+lambdaMin)/2; value =  sum(1/(1+eigenVal*lambda))
   while(abs(value - df) > 1e-3){
     if(value > df){lambdaMin = lambda; lambda = (lambdaMax+lambdaMin)/2; value = sum(1/(1+eigenVal*lambda))}
     else {lambdaMax = lambda; lambda = (lambdaMax+lambdaMin)/2; value = sum(1/(1+eigenVal*lambda))}
   }
-    
+
   return (lambda/2)
 }
 
 
-# function: compute the importance score from a LinCDE tree 
+# function: compute the importance score from a LinCDE tree
 # input:
   # tree: a LinCDE tree
   # d: number of covariates
