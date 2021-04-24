@@ -32,7 +32,7 @@ BEGIN_RCPP
 END_RCPP
 }
 // LinCDESplit
-NumericVector LinCDESplit(const NumericMatrix& X, const IntegerVector& yIndex, const NumericMatrix& cellProb, const NumericMatrix& z, const NumericMatrix& covMatrixInv, const NumericMatrix& splitPoint, int numberBin);
+NumericVector LinCDESplit(const NumericMatrix& X, const IntegerVector& yIndex, const NumericMatrix& cellProb, const NumericMatrix& z, const NumericMatrix& covMatrixInv, const List& splitPoint, const int& numberBin);
 RcppExport SEXP _LinCDE_LinCDESplit(SEXP XSEXP, SEXP yIndexSEXP, SEXP cellProbSEXP, SEXP zSEXP, SEXP covMatrixInvSEXP, SEXP splitPointSEXP, SEXP numberBinSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
@@ -42,8 +42,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const NumericMatrix& >::type cellProb(cellProbSEXP);
     Rcpp::traits::input_parameter< const NumericMatrix& >::type z(zSEXP);
     Rcpp::traits::input_parameter< const NumericMatrix& >::type covMatrixInv(covMatrixInvSEXP);
-    Rcpp::traits::input_parameter< const NumericMatrix& >::type splitPoint(splitPointSEXP);
-    Rcpp::traits::input_parameter< int >::type numberBin(numberBinSEXP);
+    Rcpp::traits::input_parameter< const List& >::type splitPoint(splitPointSEXP);
+    Rcpp::traits::input_parameter< const int& >::type numberBin(numberBinSEXP);
     rcpp_result_gen = Rcpp::wrap(LinCDESplit(X, yIndex, cellProb, z, covMatrixInv, splitPoint, numberBin));
     return rcpp_result_gen;
 END_RCPP

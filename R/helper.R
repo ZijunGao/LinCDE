@@ -69,5 +69,33 @@ importanceScore = function(tree, d, n.trees = 1){
   return (importance)
 }
 
+# 04/23/2021
+# function: compute the list of candidate splits
+# input:
+  # X: variable matrix (nobs by nvar)
+  # numberSplit: vector or scalar of the resulting split intervals' numbers (length nvar or 1)
+# output:
+# splitPoint: a candidate split list (length nvars). Each element is a vector corresponding to a certain variable's candidate splits (length of numberSplit or 1 + the number of unique values).
+constructSplitPoint = function(X, numberSplit){
+  # preprocess
+  d = dim(X)[2]
+  if(length(numberSplit) == 1){numberSplit = rep(numberSplit,d)}
+
+  # construct candidate splits
+  splitPoint = list()
+  for(i in 1:d){
+    # unique values
+    numberUnique = length(unique(X[,i]))
+    if(numberUnique < (numberSplit[i]-1)){
+      valueUnique = sort(unique(X[,i]), decreasing = FALSE)
+      splitPoint[[i]] = c(valueUnique[1],(valueUnique[-numberUnique] + valueUnique[-1])/2, valueUnique[numberUnique])
+    } else {
+      # quantiles
+      splitPoint[[i]] = quantile(X[,i], probs = seq(0,1,length.out = numberSplit[i]))[-1]
+    }
+    names(splitPoint[[i]]) = NULL
+  }
+  return (splitPoint)
+}
 
 

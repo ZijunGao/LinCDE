@@ -4,7 +4,7 @@
 #'
 #' @param X input matrix, of dimension nobs x nvars; each row represents an observation vector.
 #' @param y response vector, of length nobs.
-#' @param splitPoint candidate split matrix, of dimension nvars x number of candidate splits per covariate; each row represents a candidate split vector. An alternative input is candidate split numbers, a scalar if all variables share the same number of candidate splits, a vector of length nvars if variables have different numbers of candidate splits (currently not available). If candidate split numbers are given, each variable's range is divided into \code{splitPoint} intervals containing approximately the same number of observations. Default is 20.
+#' @param splitPoint a list of candidate splits, of length nvars. Each element is a vector corresponding to a variable's candidate splits (including the left and right end points). The list's elements are ordered the same as \code{X}'s columns. An alternative input is candidate split numbers, a scalar if all variables share the same number of candidate splits, a vector of length nvars if variables have different numbers of candidate splits. If candidate split numbers are given, each variable's range is divided into \code{splitPoint-1} intervals containing approximately the same number of observations. Default is 20. Note that if a variable has fewer unique values than the desired number of intervals, split intervals corresponding to each unique value are created.
 #' @param numberBin the number of bins for response discretization. The response range is divided into \code{numberBin} equal-width bins.
 #' @param z sufficient statistics, i.e., spline basis. For \code{z = "Gaussian"}, y, \eqn{y^2} are used. For \code{z = "bsTransform"}, transformed cubic B-splines are used. For \code{z = "nsTransform"}, transformed natural cubic splines are used. Default is "nsTransform".
 #' @param prior the type of the initial carrying density. For \code{prior = "uniform"}, the uniform distribution over the response range is used. For \code{prior = "Gaussian"}, the Gaussian distribution with the marginal response mean and standard deviation is used. All observations share the same initial carrying density. Default is "Gaussian".
@@ -28,13 +28,9 @@ LinCDEBoosting = function(y, X, splitPoint = 20, z = "nsTransform", splineDf = 4
   if(is.null(dim(X))){X = matrix(X, ncol = 1)} # one covariate
   d = dim(X)[2]
   # candidate splits
-  if(is.null(dim(splitPoint))){
-    numberSplit = splitPoint
-    splitPoint = matrix(0, nrow = d, ncol = numberSplit + 1)
-    for (i in 1:d) {splitPoint[i,] = quantile(X[,i], probs = seq(0,1,length.out = (1+numberSplit)))}
-    splitPoint = splitPoint[,-c(1,dim(splitPoint)[2])]
+  if(class(splitPoint) != "list"){
+    numberSplit = splitPoint; splitPoint = constructSplitPoint(X, numberSplit)
   }
-  splitPoint = cbind(splitPoint, max(X)); X = X + runif(length(X), -1e-6, 1e-6)
 
   # response discretization
   if(!is.null(minY)){y = c(y, minY)}
