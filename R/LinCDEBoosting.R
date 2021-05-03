@@ -5,10 +5,10 @@
 #' @param X input matrix, of dimension nobs x nvars; each row represents an observation vector.
 #' @param y response vector, of length nobs.
 #' @param splitPoint a list of candidate splits, of length nvars. Each element is a vector corresponding to a variable's candidate splits (including the left and right end points). The list's elements are ordered the same as \code{X}'s columns. An alternative input is candidate split numbers, a scalar if all variables share the same number of candidate splits, a vector of length nvars if variables have different numbers of candidate splits. If candidate split numbers are given, each variable's range is divided into \code{splitPoint-1} intervals containing approximately the same number of observations. Default is 20. Note that if a variable has fewer unique values than the desired number of intervals, split intervals corresponding to each unique value are created.
-#' @param numberBin the number of bins for response discretization. The response range is divided into \code{numberBin} equal-width bins.
+#' @param numberBin the number of bins for response discretization. Default is 40. The response range is divided into \code{numberBin} equal-width bins.
 #' @param z sufficient statistics, i.e., spline basis. For \code{z = "Gaussian"}, y, \eqn{y^2} are used. For \code{z = "bsTransform"}, transformed cubic B-splines are used. For \code{z = "nsTransform"}, transformed natural cubic splines are used. Default is "nsTransform".
 #' @param prior the type of the initial carrying density. For \code{prior = "uniform"}, the uniform distribution over the response range is used. For \code{prior = "Gaussian"}, the Gaussian distribution with the marginal response mean and standard deviation is used. All observations share the same initial carrying density. Default is "Gaussian".
-#' @param splineDf the number of sufficient statistics. If \code{z = "Gaussian"}, \code{splineDf} is set to 2. Default is 4.
+#' @param splineDf the number of sufficient statistics. If \code{z = "Gaussian"}, \code{splineDf} is set to 2. Default is 10.
 #' @param df the ridge Poisson regression's degrees of freedom. \code{df} is used for determining the ridge regularization hyper-parameter. If \code{z = "Gaussian"}, no penalization is implemented. If \code{df = splineDf}, there is no ridge penalization. Default is 2.
 #' @param penalty vector of penalties applied to each sufficient statistics' coefficient. Default is 1 for each coefficient.
 #' @param terminalSize the minimum number of observations in a terminal node. Default is 20.
@@ -21,7 +21,7 @@
 #' @return LinCDE boosting returns \code{trees}: a list of LinCDE trees. An \code{importanceScore} score vector measuring the contribution of each covariate to the objective is also available. For predictions based on the fitted LinCDE boosting model, please refer to the function \code{LinCDEPredict}.
 #'
 #' @export
-LinCDEBoosting = function(y, X, splitPoint = 20, z = "nsTransform", splineDf = 4, prior = "Gaussian", numberBin = 20, df = 2, penalty = NULL, terminalSize = 20, depth = 2, n.trees = 100, shrinkage = 0.1, minY = NULL, maxY = NULL){
+LinCDEBoosting = function(y, X, splitPoint = 20, z = "nsTransform", splineDf = 10, prior = "Gaussian", numberBin = 40, df = 2, penalty = NULL, terminalSize = 20, depth = 2, n.trees = 100, shrinkage = 0.1, minY = NULL, maxY = NULL){
   alpha = 0.2; order = splineDf; type = z; z = NULL
   # pre-process
   n = length(y);
@@ -33,8 +33,8 @@ LinCDEBoosting = function(y, X, splitPoint = 20, z = "nsTransform", splineDf = 4
   }
 
   # response discretization
-  if(!is.null(minY)){y = c(y, minY)}
-  if(!is.null(maxY)){y = c(y, maxY)}
+  if(!is.null(minY)){y = c(y, minY)} else {y = c(y, min(y)-0.1)}
+  if(!is.null(maxY)){y = c(y, maxY)} else {y = c(y, max(y)+0.1)}
   splitPointY = seq(quantile(y, probs = 0), quantile(y, probs = 1), length.out = (numberBin + 1)); h = splitPointY[2] - splitPointY[1]
   y = y[1:n]
   splitMidPointY = (splitPointY[1 : numberBin] + splitPointY[2 : (numberBin + 1)])/2

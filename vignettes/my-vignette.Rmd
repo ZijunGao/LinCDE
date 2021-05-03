@@ -1,0 +1,255 @@
+---
+title: "LinCDE"
+author: Zijun Gao
+date: May 2021
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{LinCDE vignette}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+
+<!-- Conditional density estimation is a fundamental problem in statistics, with various scientific and practical applications such as genetics and economics. We propose a conditional density estimator based on tree boosting and Lindsey's method (LinCDE). LinCDE admits flexible modeling of the density family and captures distributional characteristics like modality and shape. In particular, LinCDE always produces smooth and non-negative density estimates. Furthermore, in the presence of nuisances, LinCDE identifies the influential covariates to the response distribution.  -->
+
+In this vignette, we will introduce how to use the R package LinCDE for conditional density estimation.
+
+## Background
+
+The density of a continuous random variable characterizes the relative likelihood of the random variable taking a specific value. In statistics, many questions are essentially questions of density characteristics, e.g., location, variance, modality, and skewness. A fruitful collection of methods have been proposed for density estimation.
+
+In practice, the density of interest is often non-homogeneous across observations. For instance, the body height's density grows up in mean as the age increases, the food expenditure's density is more variable among the higher-income community relative to the lower-income community, and the salary's density is bi-modal among lawyers while unimodal among firefighters. The heterogeneity in conditional densities often conveys meaningful messages. We propose LinCDE to estimate the conditional densities.  
+
+LinCDE is a boosting algorithm based on LinCDE trees. A LinCDE tree partitions the covariate space into subregions with approximately homogeneous local densities and employs Lindsey's method for density estimation. The LinCDE tree then aggregates the densities from different subregions and outputs as the final conditional density. LinCDE grows a number of LinCDE trees in a stagewise forward manner, and each tree fits the residuals of the previous estimate. For more details, please refer to the LinCDE paper.
+
+
+## LinCDE package
+### A toy example
+In the following, we illustrate the workflow of the LinCDE package using a toy example.
+
+Before all, install and attach the LinCDE package. We also need the lattice and the latex2exp packages for visualization.
+```{r setup}
+library("LinCDE")
+library("lattice")
+library("latex2exp")
+```
+
+Next, we prepare the example dataset. The function requires a covariate matrix and a response vector. In this example, we generate $20$ covariates uniformly from $[-1,1]$. The response depends on the covariates through its mean and variance. In particular, the first and the second covariate influence the response's mean, and the second covariate also influences the response's variance. Given a covariate value, the response is locally Gaussian. The lattice plot below visualizes the conditional densities at $9$ different covariate values. We conduct conditional density estimation based on $1000$ independent samples.
+
+```{r}
+# training data
+set.seed(100)
+n = 1000; d = 20
+X = matrix(runif(n * d, -1, 1), ncol = d)
+y = 0.5 * X[,1] + X[,1] * X[,2] + rnorm(n,0,1) * (0.5 + 0.25 * X[,2])
+```
+
+```{r, echo = FALSE, fig.height=5.3, fig.width = 7, fig.align="center"}
+XProfile = matrix(runif(3^2 * d,-1,1), nrow = 3^2, ncol = d)
+XProfile[,1] = rep(c(-0.6,0,0.6), 3)
+XProfile[,2] = rep(c(0.6,0,-0.6), rep(3,3))
+XProfile = XProfile[rep(seq(1,9), rep(100, 9)), ]
+splitPointYTest = seq(quantile(y, probs = 0)-0.3, quantile(y, probs = 1)+0.3, length.out = 101)
+splitMidPointYTest = (splitPointYTest[1:100] + splitPointYTest[2:101])/2
+yProfile = rep(splitMidPointYTest, 9)
+trueProfile = dnorm(yProfile, mean = (0.5 * XProfile[,1] + XProfile[,1] * XProfile[,2]), sd = (0.5 + 0.25 * XProfile[,2]))
+# lattice plot of the true density
+latticeCDE = data.frame(rep(splitMidPointYTest, 9)); colnames(latticeCDE) = "y"
+latticeCDE$density = trueProfile
+latticeCDE$group = rep(seq(1,9), rep(100,9))
+strip = lattice::strip.custom(bg="lightgrey", factor.levels = c(latex2exp::TeX('G_1: (-0.6,0.6)'),latex2exp::TeX('G_2: (0,0.6)'),latex2exp::TeX('G_3: (0.6,0.6)'),latex2exp::TeX('G_4: (-0.6,0)'),latex2exp::TeX('G_5: (0,0)'),latex2exp::TeX('G_6: (0.6,0)'),latex2exp::TeX('G_7: (-0.6,-0.6)'),latex2exp::TeX('G_8: (0,-0.6)'),latex2exp::TeX('G_9: (0.6,-0.6)')), par.strip.text=list(col="black", cex=1, font=1))
+lattice::xyplot(density ~ y | factor(group), data = latticeCDE, type = "l", col = c("blue"), lty = c(3), lwd = 3, ylab=list("density", cex = 1.5), xlab = list("Y", cex = 1.5), aspect = 0.75, layout = c(3,3), strip = strip, scales = list(cex = 1), main = "true conditional densities")
+```
+
+To run LinCDE, we need to determine a few hyper-parameters critical to the performance. The two primary parameters of interest are the number of iterations (n.trees) and the depths of LinCDE trees (depth).
+
+  * _n.trees_. We train a LinCDE model on the training data with a large number of trees, e.g., 100 trees. We then compute the validation log-likelihoods after each iteration on a separate validation dataset. We choose the number of iterations with the maximal validation log-likelihood. 
+
+    In the following example with _depth = 3_, we specify the maximal number of trees as $100$. The LinCDE stops early at $67$ iterations due to no significant improvements in splitting. We then predict on the validation dataset and plot the validation log-likelihood curves. The log-likelihood first increases then stabilizes at $-0.86$ after $50$ iterations. Therefore, we choose _n.trees = 50_.
+
+  * _depth_. Deeper trees lead to fewer iterations but are more likely to overfit. We train LinCDE models with a grid of depths. For each depth, we choose the number of iterations as above and record the associated log-likelihood. We choose the depth with the maximal validation log-likelihood.
+
+    In the following example, we experiment with _depth = 3_ and _depth = 10_. (In practice, we may consider more depth options, e.g., $\{2,3,...,10\}$.) For _depth = 3_, we choose _50_ iterations, and the associated log-likelihood is $-0.86$. For _depth = 10_, we choose _20_ iterations, and the associated log-likelihood is $-0.89$. Notice that $-0.86 > -0.89$, thus we prefer _depth = 3_. 
+
+```{r, fig.height=4.5, fig.width = 6, fig.align="center"}
+# test data
+set.seed(318)
+nVal = 1000; d = 20
+XVal = matrix(runif(nVal * d, -1, 1), ncol = d)
+yVal = 0.5 * XVal[,1] + XVal[,1] * XVal[,2] + rnorm(nVal,0,1) * (0.5 + 0.25 * X[,2])
+  
+exampleD3 = LinCDEBoosting(y = y, X = X, depth = 3, n.trees = 100)
+
+predictExampleD3 = LinCDEPredict(X = XVal, y = yVal, trees = exampleD3)
+
+plot(predictExampleD3$testLogLikelihoodHistory, pch = 16, main = "depth = 3", xlab = "iteration", ylab = "log-likeihood")
+
+exampleD10 = LinCDEBoosting(y = y, X = X, depth = 10, n.trees = 100)
+
+predictExampleD10 = LinCDEPredict(X = XVal, y = yVal, trees = exampleD10)
+
+plot(predictExampleD10$testLogLikelihoodHistory, pch = 16, main = "depth = 10", xlab = "iteration", ylab = "log-likeihood")
+```
+
+There are a number of secondary hyper-parameters. We recommend starting with the default values and making changes only if certain problematic issues are observed.
+
+  * _z_: the type of spline basis. Default is the cubic natural spline basis. Cubic natural splines are desirable for their flexibility, smoothness, and linear extensions beyond the boundaries. However, if the conditional densities are believed to belong to a certain distribution family, then specific z should be adopted. For instance, in the above example where the response is locally Gaussian, _z = "Gaussian"_ is the most appropriate choice.
+
+  * _splineDf_: the number of spline basis. Default is 10. If you go with the natural cubic spline basis, then splineDf specifies the splines' degrees of freedom, i.e., the number of spline bases. A larger splineDf is able to characterize more local structures but may produce unnecessary curvatures. 
+
+  * _df_: the ridge Poisson regression's degrees of freedom. Default is 2. df is used for determining the ridge regularization hyper-parameter. A smaller df corresponds to a larger regularization parameter, and assists to avoid computational instabilities at subregions with a limited number of observations. 
+
+  * _prior_: type of the initial carrying density. Default is "Gaussian", i.e., the Gaussian distribution with the marginal response mean and the standard deviation is used as the universal density initialization. If the responses are more uniformly distributed, you can set _prior = "uniform"_.
+
+  * _others_: splitPoint, terminalSize, shrinkageEta, etc. For hyper-parameters shared by all tree boosting algorithms, general boosting guidance is applicable.
+
+In the above example, we set hyperparameters _splineDf = "Gaussian"_, _shrinkageEta = 0.02_, _depth = 3_, _n.trees = 300_, and leave other parameters at defualt values. 
+
+```{r}
+example = LinCDEBoosting(y = y, X = X, z = "Gaussian", depth = 3, n.trees = 300, shrinkage = 0.02)
+```
+
+For visualization, we plot the estimated conditional densities against the truth at the above $9$ landmarks. The estimated conditional densities are very close to the truth.
+```{r, echo = FALSE, fig.height=5.3, fig.width = 7, fig.align="center"}
+splitPointYTest = seq(quantile(y, probs = 0)-0, quantile(y, probs = 1)+0, length.out = 101)
+splitMidPointYTest = (splitPointYTest[1:100] + splitPointYTest[2:101])/2
+
+LinCDEBoostingProfile = matrix(LinCDEPredict(X = XProfile, y = yProfile, trees = example, splitPointYTest = splitPointYTest)$density, nrow = 1)
+
+latticeCDE = data.frame(rep(splitMidPointYTest, 9*2)); colnames(latticeCDE) = "y"
+latticeCDE$density = c(trueProfile, apply(LinCDEBoostingProfile, 2, mean))
+latticeCDE$method = factor(c(rep(c("truth", "LinCDE"), rep(100*9,2))), levels=c("truth", "LinCDE"))
+latticeCDE$group = rep(rep(seq(1,9), rep(100,9)), 2)
+key=list(space="top", columns = 2,
+         lines=list(col=c("blue", "red"), lty=c(3,1), lwd=3),
+         text=list(c("truth", "LinCDE")), cex = 1.5)
+strip = lattice::strip.custom(bg="lightgrey", factor.levels = c(latex2exp::TeX('G_1: (-0.6,0.6)'),latex2exp::TeX('G_2: (0,0.6)'),latex2exp::TeX('G_3: (0.6,0.6)'),latex2exp::TeX('G_4: (-0.6,0)'),latex2exp::TeX('G_5: (0,0)'),latex2exp::TeX('G_6: (0.6,0)'),latex2exp::TeX('G_7: (-0.6,-0.6)'),latex2exp::TeX('G_8: (0,-0.6)'),latex2exp::TeX('G_9: (0.6,-0.6)')), par.strip.text=list(col="black", cex=1, font=1))
+
+lattice::xyplot(density ~ y | factor(group), group = method, data = latticeCDE[which(latticeCDE$group %in% seq(1,9)),], type = "l", col = c("blue", "red"), lty = c(3,1), lwd = 3, ylab=list("conditional density", cex = 1.5), xlab = list("Y", cex = 1.5), key = key, aspect = 0.75, layout = c(3,3), strip = strip, scales = list(cex = 1), main = "LinCDE's estimated conditional densities")
+```
+
+
+To identify the influential covariates, we plot the importance scores for each covariate. The importance score barplot indicates that the first two candidates contribute the most to the improvement in the objective, which agrees with the underlying density model.
+
+```{r, fig.height=4.5, fig.width = 6, fig.align="center"}
+barplot(example$importanceScore, names= paste("X", seq(1,d), sep = ""), main = "importance score", ylab = "importance", xlab = "covariates", cex.lab = 1.5, cex.main = 1.5)
+```
+
+### More examples
+The above example shows LinCDE's ability to capture location and scale changes. We add two more examples focusing on modality and skewness, respectively.
+
+For modality, we generate locally Gaussian mixture responses if $X_2 \le 0.2$, and locally Gaussian responses if $X_2 > 0.2$. Meanwhile, we let the responses' locations depend on the first covariate.
+
+We follow the aforementioned workflow and set the hyper-parameters at _shrinkageEta = 0.02_, _depth = 3_, _n.trees = 200_ (the rest parameters are at default values). 
+
+```{r}
+# data generation parameters
+set.seed(100)
+n = 1000; d = 20
+X = matrix(runif(n * d, -1, 1), ncol = d)
+groupIndex = rbinom(n, 1, 0.5)
+y = groupIndex * rnorm(n, -0.8, 0.3) + (1-groupIndex) * rnorm(n, 0.8, 0.3)
+y = 0.25 * X[,1] + (X[,2] <= 0.2) * y + (X[,2] > 0.2) * rnorm(n, 0, 0.8)
+
+exampleModality = LinCDEBoosting(y = y, X = X, depth = 3, n.trees = 200, shrinkage = 0.02)
+```
+
+We compare the estimated conditional densities against the truth at the $9$ landmarks. The estimated conditional densities are clearly bi-modal for $X_2 = -0.5$ or $X_2 = 0$. For $X_2 = 0.5$, the estimated conditional densities are largely Gaussian with mild curvatures in the middle. The important covariates $X_1$ and $X_2$ are correctly identified.
+
+<!-- When a shallow tree is grown, the terminal nodes may consist of heterogeneous samples, and the fitted densities will be a mixture of the Gaussian mixture and Gaussian. -->
+```{r, echo = FALSE, fig.height=5.3, fig.width = 7, fig.align="center"}
+XProfile = matrix(runif(3^2 * d,-1,1), nrow = 3^2, ncol = d)
+XProfile[1:(3^2-1),1] = rep(c(-0.5,0.5), 4)
+XProfile[1:(3^2-1),2] = rep(rep(c(-0.5,0.5), rep(2,2)),2)
+XProfile[1:(3^2-1),3] = rep(c(-0.5,0.5), c(4,4))
+XProfile[3^2,1:3] = rep(0,3)
+XProfile = XProfile[rep(seq(1,9), rep(100, 9)), ]
+splitPointYTest = seq(quantile(y, probs = 0)-0.1, quantile(y, probs = 1)+0.1, length.out = 101)
+splitMidPointYTest = (splitPointYTest[1:100] + splitPointYTest[2:101])/2
+yProfile = rep(splitMidPointYTest, 9)
+
+LinCDEBoostingProfile = matrix(LinCDEPredict(X = XProfile, y = yProfile, trees = exampleModality, splitPointYTest = splitPointYTest)$density, nrow = 1)
+trueProfile = rep(0, length(yProfile))
+index = which(XProfile[,2] < 0.2)
+trueProfile[index] = (0.5 * dnorm(yProfile[index], mean = 0.25 * XProfile[index,1] + 0.8, sd = 0.3) + 0.5 * dnorm(yProfile[index], mean = 0.25 * XProfile[index,1] - 0.8, sd = 0.3))
+trueProfile[-index] = dnorm(yProfile[-index], mean = 0.25 * XProfile[-index,1], sd = 0.8)
+
+latticeCDE = data.frame(rep(splitMidPointYTest, 9*2)); colnames(latticeCDE) = "y"
+latticeCDE$density = c(trueProfile, apply(LinCDEBoostingProfile, 2, mean))
+latticeCDE$method = factor(c(rep(c("truth", "LinCDE"), rep(100*9,2))), levels=c("truth", "LinCDE"))
+latticeCDE$group = rep(rep(seq(1,9), rep(100,9)), 2)
+key=list(space="top", columns = 2,
+         lines=list(col=c("blue", "red"), lty=c(3,1), lwd=3),
+         text=list(c("truth", "LinCDE")), cex = 1.5)
+
+strip = lattice::strip.custom(bg="lightgrey", factor.levels = c(latex2exp::TeX('G_1: (-0.5,-0.5,-0.5)'),latex2exp::TeX('G_2: (0.5,-0.5,-0.5)'),latex2exp::TeX('G_3: (-0.5,0.5,-0.5)'),latex2exp::TeX('G_4: (0.5,0.5,-0.5)'),latex2exp::TeX('G_5: (-0.5,-0.5,0.5)'),latex2exp::TeX('G_6: (0.5,-0.5,0.5)'), latex2exp::TeX('G_7: (-0.5,0.5,0.5)'),latex2exp::TeX('G_8: (0.5,0.5,0.5)'),latex2exp::TeX('G_9: (0,0,0)')), par.strip.text=list(col="black", cex=0.8, font=1))
+
+lattice::xyplot(density ~ y | factor(group), group = method, data = latticeCDE[which(latticeCDE$group %in% seq(1,9)),], type = "l", col = c("blue", "red"), lty = c(3,1), lwd = 3, ylab=list("conditional density", cex = 1.5), xlab = list("Y", cex = 1.5), key = key, aspect = 0.75, layout = c(3,3), strip = strip, scales = list(cex = 1), main = "LinCDE's estimated conditional densities")
+```
+
+```{r, echo = FALSE, fig.height=4.5, fig.width = 6, fig.align="center"}
+barplot(exampleModality$importanceScore, names= paste("X", seq(1,d), sep = ""), main = "importance score", ylab = "importance", xlab = "covariates", cex.lab = 1.5, cex.main = 1.5)
+```
+
+For skewness, we generate asymmetric Gaussian mixture responses. If $X_3 > 0$, the distribution is locally right-skewed; if $X_3 < 0$, the distribution is locally left-skewed. The larger the $|X_3|$ is, the more skewed the conditional distribution is. Meanwhile, we let the responses' locations depend on the first covariate.
+
+We follow the aforementioned workflow and set the hyper-parameters at _shrinkageEta = 0.02_, _depth = 3_, _n.trees = 200_ (the rest parameters are at default values). 
+
+We compare the estimated conditional densities against the truth at the $9$ landmarks. The estimated conditional densities are right-skewed for $X_3 = 0.5$, left-skewed for $X_3 = -0.5$, and symmetric for $X_3 = 0$. The important covariates $X_1$ and $X_3$ are correctly identified
+
+```{r}
+# data generation parameters
+n = 1000; d = 20
+X = matrix(runif(n * d, -1, 1), ncol = d)
+groupIndex = rbinom(n, 1, 0.5)
+y = groupIndex * rnorm(n, 0.8, 0.5+0.45*X[,3]) + (1-groupIndex) * rnorm(n, -0.8, 0.5-0.45*X[,3]) + 0.25 * X[,1]
+
+exampleSkewness = LinCDEBoosting(y = y, X = X, depth = 3, n.trees = 200, shrinkage = 0.02)
+```
+
+```{r, echo = FALSE, fig.height=5.3, fig.width = 7, fig.align="center"}
+XProfile = matrix(runif(3^2 * d,-1,1), nrow = 3^2, ncol = d)
+XProfile[1:(3^2-1),1] = rep(c(-0.5,0.5), 4)
+XProfile[1:(3^2-1),2] = rep(rep(c(-0.5,0.5), rep(2,2)),2)
+XProfile[1:(3^2-1),3] = rep(c(-0.5,0.5), c(4,4))
+XProfile[3^2,1:3] = rep(0,3)
+XProfile = XProfile[rep(seq(1,9), rep(100, 9)), ]
+splitPointYTest = seq(quantile(y, probs = 0)-0.1, quantile(y, probs = 1)+0.1, length.out = 101)
+splitMidPointYTest = (splitPointYTest[1:100] + splitPointYTest[2:101])/2
+yProfile = rep(splitMidPointYTest, 9)
+
+LinCDEBoostingProfile = matrix(LinCDEPredict(X = XProfile, y = yProfile, trees = exampleSkewness, splitPointYTest = splitPointYTest)$density, nrow = 1)
+trueProfile = rep(0, length(yProfile))
+trueProfile = 0.5 * dnorm(yProfile, mean = 0.25 * XProfile[,1] + 0.8, sd = 0.5+0.45*XProfile[,3]) + 0.5 * dnorm(yProfile, mean = 0.25 * XProfile[,1] - 0.8, sd = 0.5-0.45*XProfile[,3])
+
+latticeCDE = data.frame(rep(splitMidPointYTest, 9*2)); colnames(latticeCDE) = "y"
+latticeCDE$density = c(trueProfile, apply(LinCDEBoostingProfile, 2, mean))
+latticeCDE$method = factor(c(rep(c("truth", "LinCDE"), rep(100*9,2))), levels=c("truth", "LinCDE"))
+latticeCDE$group = rep(rep(seq(1,9), rep(100,9)), 2)
+key=list(space="top", columns = 2,
+         lines=list(col=c("blue", "red"), lty=c(3,1), lwd=3),
+         text=list(c("truth", "LinCDE")), cex = 1.5)
+
+strip = lattice::strip.custom(bg="lightgrey", factor.levels = c(latex2exp::TeX('G_1: (-0.5,-0.5,-0.5)'),latex2exp::TeX('G_2: (0.5,-0.5,-0.5)'),latex2exp::TeX('G_3: (-0.5,0.5,-0.5)'),latex2exp::TeX('G_4: (0.5,0.5,-0.5)'),latex2exp::TeX('G_5: (-0.5,-0.5,0.5)'),latex2exp::TeX('G_6: (0.5,-0.5,0.5)'), latex2exp::TeX('G_7: (-0.5,0.5,0.5)'),latex2exp::TeX('G_8: (0.5,0.5,0.5)'),latex2exp::TeX('G_9: (0,0,0)')), par.strip.text=list(col="black", cex=0.8, font=1))
+
+lattice::xyplot(density ~ y | factor(group), group = method, data = latticeCDE[which(latticeCDE$group %in% seq(1,9)),], type = "l", col = c("blue", "red"), lty = c(3,1), lwd = 3, ylab=list("conditional density", cex = 1.5), xlab = list("Y", cex = 1.5), key = key, aspect = 0.75, layout = c(3,3), strip = strip, scales = list(cex = 1), main = "LinCDE's estimated conditional densities")
+```
+
+```{r, echo = FALSE, fig.height=4.5, fig.width = 6, fig.align="center"}
+barplot(exampleSkewness$importanceScore, names= paste("X", seq(1,d), sep = ""), main = "importance score", ylab = "importance", xlab = "covariates", cex.lab = 1.5, cex.main = 1.5)
+```
+
+## Generate your own data and have fun with LinCDE!
+
+<!-- # Pretreatments: TODO! -->
+
+<!-- # References -->
+
+

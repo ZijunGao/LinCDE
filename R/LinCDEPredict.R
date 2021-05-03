@@ -27,6 +27,7 @@ LinCDEPredict = function(X, y = NULL, trees, splitPointYTest = NULL){
       numberBin = length(splitPointYTest)-1
       splitMidPointY = (splitPointYTest[2:(numberBin+1)] + splitPointYTest[1:numberBin])/2
       z = cbind(splitMidPointY, splitMidPointY^2)
+      splitPointY = c(splitPointYTest, Inf)
       penalty = c(1,1); k = 2; h = splitMidPointY[2] - splitMidPointY[1]
     } else if (type == "bsTransform"){
       numberBin = length(splitPointYTest)-1
@@ -126,13 +127,18 @@ LinCDEPredict = function(X, y = NULL, trees, splitPointYTest = NULL){
   nodeMembership = suppressWarnings(matrix(gbm::predict.gbm(gbmObject, newdata = data[1:n, ], n.trees = seq(1:numTree), single.tree = TRUE), ncol = numTree))
 
   # prediction
+  testLogLikelihood = numeric(0)
   for(i in 1:numTree){
     currTree = trees[[i]]
     indexLeaf = which(currTree$SplitVar == 0)
     betaTemp = currTree[indexLeaf,7:(k+6)]
-    beta = beta + betaTemp[nodeMembership[,i],]
+    beta = beta + betaTemp[nodeMembership[,i],] * shrinkage
+
+    cellProb = exp(as.matrix(beta) %*% t(z)) * cellProb0[rep(1,n),] # homogeneous prior -
+    temp = mean(log(cellProb[cbind(seq(1,n), yIndex)]/h)) - mean(log(apply(cellProb, 1, sum)))
+    testLogLikelihood = c(testLogLikelihood, temp)
   }
-  beta = beta * shrinkage
+  # beta = beta * shrinkage
   cellProb = exp(as.matrix(beta) %*% t(z)) * cellProb0[rep(1,n),] # homogeneous prior
   # compute normalizing constants
   a0 = -log(apply(cellProb, 1, sum)) - log(h)
@@ -142,6 +148,6 @@ LinCDEPredict = function(X, y = NULL, trees, splitPointYTest = NULL){
   if(full){
     result$density = cellProb[cbind(seq(1,n), yIndex)]/h; result$testLogLikelihood = mean(log(result$density))}
   else{result$density = NA; result$testLogLikelihood = NA}
-  result$cellProb = cellProb; result$splitPointY = splitPointY[-(numberBin+2)]
+  result$cellProb = cellProb; result$splitPointY = splitPointY[-(numberBin+2)]; result$testLogLikelihoodHistory = testLogLikelihood
   return(result)
 }
