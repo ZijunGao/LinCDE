@@ -51,23 +51,20 @@ X = matrix(runif(n * d, -1, 1), ncol = d)
 y = 0.5 * X[,1] + X[,1] * X[,2] + rnorm(n,0,1) * (0.5 + 0.25 * X[,2])
 ```
 
-```{r, echo = FALSE, fig.height=5.3, fig.width = 7, fig.align="center"}
+```{r,fig.height=5.3, fig.width = 7, fig.align="center"}
+# conditional density plot
 XProfile = matrix(runif(3^2 * d,-1,1), nrow = 3^2, ncol = d)
 XProfile[,1] = rep(c(-0.6,0,0.6), 3)
 XProfile[,2] = rep(c(0.6,0,-0.6), rep(3,3))
-XProfile = XProfile[rep(seq(1,9), rep(100, 9)), ]
-splitPointYTest = seq(quantile(y, probs = 0)-0.3, quantile(y, probs = 1)+0.3, length.out = 101)
-splitMidPointYTest = (splitPointYTest[1:100] + splitPointYTest[2:101])/2
-yProfile = rep(splitMidPointYTest, 9)
-trueProfile = dnorm(yProfile, mean = (0.5 * XProfile[,1] + XProfile[,1] * XProfile[,2]), sd = (0.5 + 0.25 * XProfile[,2]))
-# lattice plot of the true density
-latticeCDE = data.frame(rep(splitMidPointYTest, 9)); colnames(latticeCDE) = "y"
-latticeCDE$density = trueProfile
-latticeCDE$group = rep(seq(1,9), rep(100,9))
-strip = lattice::strip.custom(bg="lightgrey", factor.levels = c(latex2exp::TeX('G_1: (-0.6,0.6)'),latex2exp::TeX('G_2: (0,0.6)'),latex2exp::TeX('G_3: (0.6,0.6)'),latex2exp::TeX('G_4: (-0.6,0)'),latex2exp::TeX('G_5: (0,0)'),latex2exp::TeX('G_6: (0.6,0)'),latex2exp::TeX('G_7: (-0.6,-0.6)'),latex2exp::TeX('G_8: (0,-0.6)'),latex2exp::TeX('G_9: (0.6,-0.6)')), par.strip.text=list(col="black", cex=1, font=1))
-lattice::xyplot(density ~ y | factor(group), data = latticeCDE, type = "l", col = c("blue"), lty = c(3), lwd = 3, ylab=list("density", cex = 1.5), xlab = list("Y", cex = 1.5), aspect = 0.75, layout = c(3,3), strip = strip, scales = list(cex = 1), main = "true conditional densities")
-```
 
+exampleDensity = function(X, y){
+  if(is.null(dim(X))){X = matrix(X, nrow = 1)}
+  result = dnorm(y, mean = (0.5 * X[,1] + X[,1] * X[,2]), sd = (0.5 + 0.25 * X[,2]))
+  return(result)
+}
+
+densityPlot(X = XProfile, minY = min(y), maxY = max(y), trueDensity = exampleDensity)
+```
 To run LinCDE, we need to determine a few hyper-parameters critical to the performance. The two primary parameters of interest are the number of iterations (n.trees) and the depths of LinCDE trees (depth).
 
   * _n.trees_. We train a LinCDE model on the training data with a large number of trees, e.g., 100 trees. We then compute the validation log-likelihoods after each iteration on a separate validation dataset. We choose the number of iterations with the maximal validation log-likelihood. 
@@ -117,28 +114,20 @@ example = LinCDEBoosting(y = y, X = X, z = "Gaussian", depth = 3, n.trees = 300,
 ```
 
 For visualization, we plot the estimated conditional densities against the truth at the above $9$ landmarks. The estimated conditional densities are very close to the truth.
-```{r, echo = FALSE, fig.height=5.3, fig.width = 7, fig.align="center"}
-splitPointYTest = seq(quantile(y, probs = 0)-0, quantile(y, probs = 1)+0, length.out = 101)
-splitMidPointYTest = (splitPointYTest[1:100] + splitPointYTest[2:101])/2
 
-LinCDEBoostingProfile = matrix(LinCDEPredict(X = XProfile, y = yProfile, trees = example, splitPointYTest = splitPointYTest)$density, nrow = 1)
+```{r,fig.height=5.3, fig.width = 7, fig.align="center"}
+# conditional density plot
+XProfile = matrix(runif(3^2 * d,-1,1), nrow = 3^2, ncol = d)
+XProfile[,1] = rep(c(-0.6,0,0.6), 3)
+XProfile[,2] = rep(c(0.6,0,-0.6), rep(3,3))
 
-latticeCDE = data.frame(rep(splitMidPointYTest, 9*2)); colnames(latticeCDE) = "y"
-latticeCDE$density = c(trueProfile, apply(LinCDEBoostingProfile, 2, mean))
-latticeCDE$method = factor(c(rep(c("truth", "LinCDE"), rep(100*9,2))), levels=c("truth", "LinCDE"))
-latticeCDE$group = rep(rep(seq(1,9), rep(100,9)), 2)
-key=list(space="top", columns = 2,
-         lines=list(col=c("blue", "red"), lty=c(3,1), lwd=3),
-         text=list(c("truth", "LinCDE")), cex = 1.5)
-strip = lattice::strip.custom(bg="lightgrey", factor.levels = c(latex2exp::TeX('G_1: (-0.6,0.6)'),latex2exp::TeX('G_2: (0,0.6)'),latex2exp::TeX('G_3: (0.6,0.6)'),latex2exp::TeX('G_4: (-0.6,0)'),latex2exp::TeX('G_5: (0,0)'),latex2exp::TeX('G_6: (0.6,0)'),latex2exp::TeX('G_7: (-0.6,-0.6)'),latex2exp::TeX('G_8: (0,-0.6)'),latex2exp::TeX('G_9: (0.6,-0.6)')), par.strip.text=list(col="black", cex=1, font=1))
-
-lattice::xyplot(density ~ y | factor(group), group = method, data = latticeCDE[which(latticeCDE$group %in% seq(1,9)),], type = "l", col = c("blue", "red"), lty = c(3,1), lwd = 3, ylab=list("conditional density", cex = 1.5), xlab = list("Y", cex = 1.5), key = key, aspect = 0.75, layout = c(3,3), strip = strip, scales = list(cex = 1), main = "LinCDE's estimated conditional densities")
+densityPlot(X = XProfile, trueDensity = exampleDensity, trees = example)
 ```
-
 
 To identify the influential covariates, we plot the importance scores for each covariate. The importance score barplot indicates that the first two candidates contribute the most to the improvement in the objective, which agrees with the underlying density model.
 
 ```{r, fig.height=4.5, fig.width = 6, fig.align="center"}
+# importance score plot
 barplot(example$importanceScore, names= paste("X", seq(1,d), sep = ""), main = "importance score", ylab = "importance", xlab = "covariates", cex.lab = 1.5, cex.main = 1.5)
 ```
 
@@ -164,37 +153,30 @@ exampleModality = LinCDEBoosting(y = y, X = X, depth = 3, n.trees = 200, shrinka
 We compare the estimated conditional densities against the truth at the $9$ landmarks. The estimated conditional densities are clearly bi-modal for $X_2 = -0.5$ or $X_2 = 0$. For $X_2 = 0.5$, the estimated conditional densities are largely Gaussian with mild curvatures in the middle. The important covariates $X_1$ and $X_2$ are correctly identified.
 
 <!-- When a shallow tree is grown, the terminal nodes may consist of heterogeneous samples, and the fitted densities will be a mixture of the Gaussian mixture and Gaussian. -->
-```{r, echo = FALSE, fig.height=5.3, fig.width = 7, fig.align="center"}
+
+```{r,fig.height=5.3, fig.width = 7, fig.align="center"}
+# conditional density plot
 XProfile = matrix(runif(3^2 * d,-1,1), nrow = 3^2, ncol = d)
 XProfile[1:(3^2-1),1] = rep(c(-0.5,0.5), 4)
 XProfile[1:(3^2-1),2] = rep(rep(c(-0.5,0.5), rep(2,2)),2)
 XProfile[1:(3^2-1),3] = rep(c(-0.5,0.5), c(4,4))
 XProfile[3^2,1:3] = rep(0,3)
-XProfile = XProfile[rep(seq(1,9), rep(100, 9)), ]
-splitPointYTest = seq(quantile(y, probs = 0)-0.1, quantile(y, probs = 1)+0.1, length.out = 101)
-splitMidPointYTest = (splitPointYTest[1:100] + splitPointYTest[2:101])/2
-yProfile = rep(splitMidPointYTest, 9)
 
-LinCDEBoostingProfile = matrix(LinCDEPredict(X = XProfile, y = yProfile, trees = exampleModality, splitPointYTest = splitPointYTest)$density, nrow = 1)
-trueProfile = rep(0, length(yProfile))
-index = which(XProfile[,2] < 0.2)
-trueProfile[index] = (0.5 * dnorm(yProfile[index], mean = 0.25 * XProfile[index,1] + 0.8, sd = 0.3) + 0.5 * dnorm(yProfile[index], mean = 0.25 * XProfile[index,1] - 0.8, sd = 0.3))
-trueProfile[-index] = dnorm(yProfile[-index], mean = 0.25 * XProfile[-index,1], sd = 0.8)
+exampleModalityDensity = function(X, y){
+  if(is.null(dim(X))){X = matrix(X, nrow = 1)}
+  result = rep(0, length(y))
+  index = which(X[,2] < 0.2)
+  result[index] = (0.5 * dnorm(y[index], mean = 0.25 * X[index,1] + 0.8, sd = 0.3) + 0.5 * dnorm(y[index], mean = 0.25 * X[index,1] - 0.8, sd = 0.3))
+  result[-index] = dnorm(y[-index], mean = 0.25 * X[-index,1], sd = 0.8)
+  return(result)
+}
 
-latticeCDE = data.frame(rep(splitMidPointYTest, 9*2)); colnames(latticeCDE) = "y"
-latticeCDE$density = c(trueProfile, apply(LinCDEBoostingProfile, 2, mean))
-latticeCDE$method = factor(c(rep(c("truth", "LinCDE"), rep(100*9,2))), levels=c("truth", "LinCDE"))
-latticeCDE$group = rep(rep(seq(1,9), rep(100,9)), 2)
-key=list(space="top", columns = 2,
-         lines=list(col=c("blue", "red"), lty=c(3,1), lwd=3),
-         text=list(c("truth", "LinCDE")), cex = 1.5)
-
-strip = lattice::strip.custom(bg="lightgrey", factor.levels = c(latex2exp::TeX('G_1: (-0.5,-0.5,-0.5)'),latex2exp::TeX('G_2: (0.5,-0.5,-0.5)'),latex2exp::TeX('G_3: (-0.5,0.5,-0.5)'),latex2exp::TeX('G_4: (0.5,0.5,-0.5)'),latex2exp::TeX('G_5: (-0.5,-0.5,0.5)'),latex2exp::TeX('G_6: (0.5,-0.5,0.5)'), latex2exp::TeX('G_7: (-0.5,0.5,0.5)'),latex2exp::TeX('G_8: (0.5,0.5,0.5)'),latex2exp::TeX('G_9: (0,0,0)')), par.strip.text=list(col="black", cex=0.8, font=1))
-
-lattice::xyplot(density ~ y | factor(group), group = method, data = latticeCDE[which(latticeCDE$group %in% seq(1,9)),], type = "l", col = c("blue", "red"), lty = c(3,1), lwd = 3, ylab=list("conditional density", cex = 1.5), xlab = list("Y", cex = 1.5), key = key, aspect = 0.75, layout = c(3,3), strip = strip, scales = list(cex = 1), main = "LinCDE's estimated conditional densities")
+densityPlot(X = XProfile, trueDensity = exampleModalityDensity, trees = exampleModality)
 ```
 
-```{r, echo = FALSE, fig.height=4.5, fig.width = 6, fig.align="center"}
+
+```{r, fig.height=4.5, fig.width = 6, fig.align="center"}
+# importance score plot
 barplot(exampleModality$importanceScore, names= paste("X", seq(1,d), sep = ""), main = "importance score", ylab = "importance", xlab = "covariates", cex.lab = 1.5, cex.main = 1.5)
 ```
 
@@ -214,35 +196,25 @@ y = groupIndex * rnorm(n, 0.8, 0.5+0.45*X[,3]) + (1-groupIndex) * rnorm(n, -0.8,
 exampleSkewness = LinCDEBoosting(y = y, X = X, depth = 3, n.trees = 200, shrinkage = 0.02)
 ```
 
-```{r, echo = FALSE, fig.height=5.3, fig.width = 7, fig.align="center"}
+```{r,fig.height=5.3, fig.width = 7, fig.align="center"}
+# conditional density plot
 XProfile = matrix(runif(3^2 * d,-1,1), nrow = 3^2, ncol = d)
 XProfile[1:(3^2-1),1] = rep(c(-0.5,0.5), 4)
 XProfile[1:(3^2-1),2] = rep(rep(c(-0.5,0.5), rep(2,2)),2)
 XProfile[1:(3^2-1),3] = rep(c(-0.5,0.5), c(4,4))
 XProfile[3^2,1:3] = rep(0,3)
-XProfile = XProfile[rep(seq(1,9), rep(100, 9)), ]
-splitPointYTest = seq(quantile(y, probs = 0)-0.1, quantile(y, probs = 1)+0.1, length.out = 101)
-splitMidPointYTest = (splitPointYTest[1:100] + splitPointYTest[2:101])/2
-yProfile = rep(splitMidPointYTest, 9)
 
-LinCDEBoostingProfile = matrix(LinCDEPredict(X = XProfile, y = yProfile, trees = exampleSkewness, splitPointYTest = splitPointYTest)$density, nrow = 1)
-trueProfile = rep(0, length(yProfile))
-trueProfile = 0.5 * dnorm(yProfile, mean = 0.25 * XProfile[,1] + 0.8, sd = 0.5+0.45*XProfile[,3]) + 0.5 * dnorm(yProfile, mean = 0.25 * XProfile[,1] - 0.8, sd = 0.5-0.45*XProfile[,3])
+exampleSkewnessDensity = function(X, y){
+  if(is.null(dim(X))){X = matrix(X, nrow = 1)}
+  result = 0.5 * dnorm(y, mean = 0.25 * X[,1] + 0.8, sd = 0.5 + 0.45 * X[,3]) + 0.5 * dnorm(y, mean = 0.25 * X[,1] - 0.8, sd = 0.5 - 0.45 * X[,3])
+  return(result)
+}
 
-latticeCDE = data.frame(rep(splitMidPointYTest, 9*2)); colnames(latticeCDE) = "y"
-latticeCDE$density = c(trueProfile, apply(LinCDEBoostingProfile, 2, mean))
-latticeCDE$method = factor(c(rep(c("truth", "LinCDE"), rep(100*9,2))), levels=c("truth", "LinCDE"))
-latticeCDE$group = rep(rep(seq(1,9), rep(100,9)), 2)
-key=list(space="top", columns = 2,
-         lines=list(col=c("blue", "red"), lty=c(3,1), lwd=3),
-         text=list(c("truth", "LinCDE")), cex = 1.5)
-
-strip = lattice::strip.custom(bg="lightgrey", factor.levels = c(latex2exp::TeX('G_1: (-0.5,-0.5,-0.5)'),latex2exp::TeX('G_2: (0.5,-0.5,-0.5)'),latex2exp::TeX('G_3: (-0.5,0.5,-0.5)'),latex2exp::TeX('G_4: (0.5,0.5,-0.5)'),latex2exp::TeX('G_5: (-0.5,-0.5,0.5)'),latex2exp::TeX('G_6: (0.5,-0.5,0.5)'), latex2exp::TeX('G_7: (-0.5,0.5,0.5)'),latex2exp::TeX('G_8: (0.5,0.5,0.5)'),latex2exp::TeX('G_9: (0,0,0)')), par.strip.text=list(col="black", cex=0.8, font=1))
-
-lattice::xyplot(density ~ y | factor(group), group = method, data = latticeCDE[which(latticeCDE$group %in% seq(1,9)),], type = "l", col = c("blue", "red"), lty = c(3,1), lwd = 3, ylab=list("conditional density", cex = 1.5), xlab = list("Y", cex = 1.5), key = key, aspect = 0.75, layout = c(3,3), strip = strip, scales = list(cex = 1), main = "LinCDE's estimated conditional densities")
+densityPlot(X = XProfile, trueDensity = exampleSkewnessDensity, trees = exampleSkewness)
 ```
 
-```{r, echo = FALSE, fig.height=4.5, fig.width = 6, fig.align="center"}
+```{r, fig.height=4.5, fig.width = 6, fig.align="center"}
+# importance score plot
 barplot(exampleSkewness$importanceScore, names= paste("X", seq(1,d), sep = ""), main = "importance score", ylab = "importance", xlab = "covariates", cex.lab = 1.5, cex.main = 1.5)
 ```
 
