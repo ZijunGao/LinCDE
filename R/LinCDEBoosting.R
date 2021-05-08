@@ -7,7 +7,7 @@
 #' @param splitPoint a list of candidate splits, of length nvars. Each element is a vector corresponding to a variable's candidate splits (including the left and right end points). The list's elements are ordered the same as \code{X}'s columns. An alternative input is candidate split numbers, a scalar if all variables share the same number of candidate splits, a vector of length nvars if variables have different numbers of candidate splits. If candidate split numbers are given, each variable's range is divided into \code{splitPoint-1} intervals containing approximately the same number of observations. Default is 20. Note that if a variable has fewer unique values than the desired number of intervals, split intervals corresponding to each unique value are created.
 #' @param numberBin the number of bins for response discretization. Default is 40. The response range is divided into \code{numberBin} equal-width bins.
 #' @param z sufficient statistics, i.e., spline basis. For \code{z = "Gaussian"}, y, \eqn{y^2} are used. For \code{z = "bsTransform"}, transformed cubic B-splines are used. For \code{z = "nsTransform"}, transformed natural cubic splines are used. Default is "nsTransform".
-#' @param prior the type of the initial carrying density. For \code{prior = "uniform"}, the uniform distribution over the response range is used. For \code{prior = "Gaussian"}, the Gaussian distribution with the marginal response mean and standard deviation is used. All observations share the same initial carrying density. Default is "Gaussian".
+#' @param prior the type of the initial carrying density. For \code{prior = "uniform"}, the uniform distribution over the response range is used. For \code{prior = "Gaussian"}, the Gaussian distribution with the marginal response mean and standard deviation is used. For \code{prior = "multinomial"}, the response's marginal cell probabilities are used. For \code{prior = "LindseyMarginal"}, the marginal response density estimated by Lindsey's method based on all responses is used. The argument \code{prior} can also be a homogeneous or heterogeneous conditional density function. The conditional density function should take a covariate matrix X, a response vector y, and output the densities at pairs {(Xi, yi)}. See the LinCDE vignette for examples. Default is "Gaussian".
 #' @param splineDf the number of sufficient statistics. If \code{z = "Gaussian"}, \code{splineDf} is set to 2. Default is 10.
 #' @param df the ridge Poisson regression's degrees of freedom. \code{df} is used for determining the ridge regularization hyper-parameter. If \code{z = "Gaussian"}, no penalization is implemented. If \code{df = splineDf}, there is no ridge penalization. Default is 2.
 #' @param penalty vector of penalties applied to each sufficient statistics' coefficient. Default is 1 for each coefficient.
@@ -97,14 +97,48 @@ LinCDEBoosting = function(y, X, splitPoint = 20, z = "nsTransform", splineDf = 1
   # boosting
   betaName = paste0(rep("beta", order), 1:order)
   trees = list()
-  if(prior == "uniform"){
-    cellProb = matrix(1/numberBin, nrow = n, ncol = numberBin)
-  } else if (prior == "Gaussian"){
-    cellProb = matrix(dnorm(splitMidPointY, mean = mean(y), sd = sd(y)), nrow = 1)
-    cellProb = cellProb/sum(cellProb)
-    cellProb = cellProb[rep(1, n),]
+  if(class(prior) == "character"){
+    if(prior == "uniform"){
+      cellProb = matrix(1/numberBin, nrow = n, ncol = numberBin)
+    } else if (prior == "Gaussian"){
+      cellProb = matrix(dnorm(splitMidPointY, mean = mean(y), sd = sd(y)), nrow=1)
+      cellProb = cellProb/sum(cellProb)
+      cellProb = cellProb[rep(1, n),]
+    } else if (prior == "multinomial"){
+      cellProb = matrix(countIndex(yIndex = yIndex, numberBin = numberBin), nrow=1) + 1 # plus 1 for robustness
+      cellProb = cellProb/sum(cellProb)
+      cellProb = cellProb[rep(1, n),]
+    } else if (prior == "LindseyMarginal"){
+      counts = countIndex(yIndex = yIndex, numberBin = numberBin)
+      modelPrior = suppressWarnings(glmnet::glmnet(x = z, y = counts, family = "poisson", lambda = 0, alpha = 0))
+      cellProb = matrix(exp(z %*% as.vector(modelPrior$beta)), nrow=1)
+      cellProb = cellProb/sum(cellProb)
+      cellProb = cellProb[rep(1, n),]
+    }
+  } else if (class(prior) == "function"){
+    cellProb = t(matrix(prior(X = X[rep(seq(1,n),rep(numberBin, n)),], y = rep(splitMidPointY, n)), nrow = numberBin))
+    cellProb = diag(1/apply(cellProb, 1, sum)) %*% cellProb
   }
+
   # tree initialization
+  if(n.trees == 0){
+    result = list(); result$trees = NULL; result$splitMidPointY = splitMidPointY; result$z = z; result$depth = depth
+    if(class(prior) == "character"){
+      if(prior == "uniform"){
+        result$prior = prior
+      } else if(prior == "Gaussian"){
+        result$prior = c(prior, mean(y), sd(y))
+      } else if(prior == "multinomial"){
+        result$prior = c(prior, y)
+      } else if(prior == "LindseyMarginal"){
+        result$prior = c(prior, as.vector(modelPrior$beta))
+      }
+    } else if(class(prior) == "function"){
+      result$prior = prior
+    }
+    result$importanceScore = NULL; result$shrinkage = shrinkage; result$type = type
+    return (result)
+  }
   rootNode = data.frame(matrix(rep(0, 6 + order), nrow = 1))
   indexList = list(); indexList[[1]] = seq(1, n)
   for(l in 1:n.trees){
@@ -130,10 +164,18 @@ LinCDEBoosting = function(y, X, splitPoint = 20, z = "nsTransform", splineDf = 1
 
   # post-process
   result = list(); result$trees = trees; result$splitMidPointY = splitMidPointY; result$z = z; result$depth = depth
-  if(prior == "uniform"){
-    result$prior = "uniform"
-  } else if(prior == "Gaussian"){
-    result$prior = c("Gaussian", mean(y), sd(y))
+  if(class(prior) == "character"){
+    if(prior == "uniform"){
+      result$prior = prior
+    } else if(prior == "Gaussian"){
+      result$prior = c(prior, mean(y), sd(y))
+    } else if(prior == "multinomial"){
+      result$prior = c(prior, y)
+    } else if(prior == "LindseyMarginal"){
+      result$prior = c(prior, as.vector(modelPrior$beta))
+    }
+  } else if(class(prior) == "function"){
+    result$prior = prior
   }
   result$importanceScore = importanceScore(tree = trees, d = d, n.trees = n.trees); result$shrinkage = shrinkage; result$type = type
   return(result)

@@ -23,25 +23,23 @@ In this vignette, we will introduce how to use the R package LinCDE for conditio
 
 ## Background
 
-The density of a continuous random variable characterizes the relative likelihood of the random variable taking a specific value. In statistics, many questions are essentially questions of density characteristics, e.g., location, variance, modality, and skewness. A fruitful collection of methods have been proposed for density estimation.
+The density of a continuous random variable characterizes its relative likelihood of taking a specific value. In statistics, many questions are essentially questions of density characteristics, e.g., location, variance, modality, and skewness. A fruitful collection of methods have been proposed for density estimation, such as kernel density estimation, Lindsey's method.
 
-In practice, the density of interest is often non-homogeneous across observations. For instance, the body height's density grows up in mean as the age increases, the food expenditure's density is more variable among the higher-income community relative to the lower-income community, and the salary's density is bi-modal among lawyers while unimodal among firefighters. The heterogeneity in conditional densities often conveys meaningful messages. We propose LinCDE to estimate the conditional densities.  
+In practice, the density of interest is often heterogeneous across observations. For instance, the density of height goes up in the mean from children to adults, the density of food expenditure is more variant among the higher-income community relative to the lower-income community, and the density of salary is bi-modal among lawyers while unimodal among firefighters. The heterogeneity in conditional densities often conveys meaningful messages. 
 
-LinCDE is a boosting algorithm based on LinCDE trees. A LinCDE tree partitions the covariate space into subregions with approximately homogeneous local densities and employs Lindsey's method for density estimation. The LinCDE tree then aggregates the densities from different subregions and outputs as the final conditional density. LinCDE grows a number of LinCDE trees in a stagewise forward manner, and each tree fits the residuals of the previous estimate. For more details, please refer to the LinCDE paper.
+We propose LinCDE to estimate the conditional densities. LinCDE is a boosting algorithm based on LinCDE trees. A LinCDE tree partitions the covariate space into subregions with approximately locally homogeneous densities, employs Lindsey's method for density estimation in the subregions, and aggregates the densities from different sub-areas as the estimated conditional density. LinCDE grows a number of LinCDE trees in a stagewise forward manner, and each tree fits the residuals of the previous estimate. For more details, please refer to the LinCDE paper.
 
 
 ## LinCDE package
 ### A toy example
-In the following, we illustrate the workflow of the LinCDE package using a toy example.
+We illustrate the workflow of the LinCDE package using a toy example.
 
-Before all, install and attach the LinCDE package. We also need the lattice and the latex2exp packages for visualization.
+Before all, install and attach the LinCDE package. 
 ```{r setup}
 library("LinCDE")
-library("lattice")
-library("latex2exp")
 ```
 
-Next, we prepare the example dataset. The function requires a covariate matrix and a response vector. In this example, we generate $20$ covariates uniformly from $[-1,1]$. The response depends on the covariates through its mean and variance. In particular, the first and the second covariate influence the response's mean, and the second covariate also influences the response's variance. Given a covariate value, the response is locally Gaussian. The lattice plot below visualizes the conditional densities at $9$ different covariate values. We conduct conditional density estimation based on $1000$ independent samples.
+Next, we prepare the example dataset. The function requires a covariate matrix and a response vector. In this example, we generate $20$ covariates uniformly from $[-1,1]$. Given a covariate value, the response is locally Gaussian. The response depends on the covariates through its mean and variance. In particular, $X_1$ and $X_2$ influence the response's mean, and $X_2$ also influences the response's variance. The lattice plot below visualizes the conditional densities at $9$ different covariate values. We conduct conditional density estimation based on $1000$ independent samples.
 
 ```{r}
 # training data
@@ -65,53 +63,107 @@ exampleDensity = function(X, y){
 
 densityPlot(X = XProfile, minY = min(y), maxY = max(y), trueDensity = exampleDensity)
 ```
-To run LinCDE, we need to determine a few hyper-parameters critical to the performance. The two primary parameters of interest are the number of iterations (n.trees) and the depths of LinCDE trees (depth).
 
-  * _n.trees_. We train a LinCDE model on the training data with a large number of trees, e.g., 100 trees. We then compute the validation log-likelihoods after each iteration on a separate validation dataset. We choose the number of iterations with the maximal validation log-likelihood. 
+#### Fitting
 
-    In the following example with _depth = 3_, we specify the maximal number of trees as $100$. The LinCDE stops early at $67$ iterations due to no significant improvements in splitting. We then predict on the validation dataset and plot the validation log-likelihood curves. The log-likelihood first increases then stabilizes at $-0.86$ after $50$ iterations. Therefore, we choose _n.trees = 50_.
+To run LinCDE, we need to determine a few hyper-parameters critical to the performance. The two primary parameters of interest are the number of iterations (_n.trees_) and the depths of LinCDE trees (_depth_).
 
-  * _depth_. Deeper trees lead to fewer iterations but are more likely to overfit. We train LinCDE models with a grid of depths. For each depth, we choose the number of iterations as above and record the associated log-likelihood. We choose the depth with the maximal validation log-likelihood.
+  * _n.trees_: the number of LinCDE trees to fit. We train a LinCDE model on the training data with a large number of trees, e.g., 100 trees. We then compute the validation log-likelihoods after each iteration on a separate validation dataset. We choose the number of iterations with the maximal validation log-likelihood. 
 
-    In the following example, we experiment with _depth = 3_ and _depth = 10_. (In practice, we may consider more depth options, e.g., $\{2,3,...,10\}$.) For _depth = 3_, we choose _50_ iterations, and the associated log-likelihood is $-0.86$. For _depth = 10_, we choose _20_ iterations, and the associated log-likelihood is $-0.89$. Notice that $-0.86 > -0.89$, thus we prefer _depth = 3_. 
+    In the following example with _depth = 2_, we specify the maximal number of trees as $100$. We evaluate the validation log-likelihood and plot the curve. The log-likelihood first increases then stabilizes at $-0.76$ after $50$ iterations. Therefore, we choose _n.trees = 50_ for _depth = 2_.
 
-```{r, fig.height=4.5, fig.width = 6, fig.align="center"}
-# test data
+  * _depth_: the number of splits of each LinCDE tree. We apply LinCDE with a grid of depths. For each depth, we choose the number of iterations as above and record the associated validation log-likelihood. We choose the depth with the maximal validation log-likelihood. 
+  
+    In the following example, we experiment with _depth = 1_ and _depth = 2_. For _depth = 1_, we choose _100_ iterations, and the associated log-likelihood is $-0.80$. For _depth = 2_, we choose _50_ iterations, and the associated log-likelihood is $-0.76$. Since $-0.76 > -0.80$, we choose _depth = 2_. Notice that the example's conditional mean involves an interaction term of $X_1$ and $X_2$, and thus _depth = 1_ --- an additive model in the density's exponent --- is less efficient than _depth = 2_ --- a richer model including first-order interactions.
+    
+    In standard boosting, deep trees are problematic due to overfitting. In LinCDE, the overfitting issue is more severe because the density estimation problem at terminal nodes is more complicated than regression and classification. As a result, we do not recommend _depth > 5_.
+
+
+```{r, fig.height=4.5, fig.width = 6, fig.align="center", cache=TRUE}
+# validation data
 set.seed(318)
 nVal = 1000; d = 20
 XVal = matrix(runif(nVal * d, -1, 1), ncol = d)
-yVal = 0.5 * XVal[,1] + XVal[,1] * XVal[,2] + rnorm(nVal,0,1) * (0.5 + 0.25 * X[,2])
-  
-exampleD3 = LinCDEBoosting(y = y, X = X, depth = 3, n.trees = 100)
+yVal = 0.5 * XVal[,1] + XVal[,1] * XVal[,2] + rnorm(nVal,0,1) * (0.5 + 0.25 * XVal[,2])
 
-predictExampleD3 = LinCDEPredict(X = XVal, y = yVal, trees = exampleD3)
+exampleD1 = LinCDEBoosting(y = y, X = X, depth = 1, n.trees = 100)
+predictExampleD1 = LinCDEPredict(X = XVal, y = yVal, trees = exampleD1)
+plot(predictExampleD1$testLogLikelihoodHistory, pch = 16, main = "depth = 1", xlab = "iteration", ylab = "log-likeihood")
 
-plot(predictExampleD3$testLogLikelihoodHistory, pch = 16, main = "depth = 3", xlab = "iteration", ylab = "log-likeihood")
-
-exampleD10 = LinCDEBoosting(y = y, X = X, depth = 10, n.trees = 100)
-
-predictExampleD10 = LinCDEPredict(X = XVal, y = yVal, trees = exampleD10)
-
-plot(predictExampleD10$testLogLikelihoodHistory, pch = 16, main = "depth = 10", xlab = "iteration", ylab = "log-likeihood")
+exampleD2 = LinCDEBoosting(y = y, X = X, depth = 2, n.trees = 100)
+predictExampleD2 = LinCDEPredict(X = XVal, y = yVal, trees = exampleD2)
+plot(predictExampleD2$testLogLikelihoodHistory, pch = 16, main = "depth = 2", xlab = "iteration", ylab = "log-likeihood")
 ```
+There are a number of secondary hyper-parameters. We recommend starting with the default values and making changes only if certain issues are observed.
 
-There are a number of secondary hyper-parameters. We recommend starting with the default values and making changes only if certain problematic issues are observed.
+  * _z_: the type of spline basis. Default is the cubic natural spline basis. Cubic natural splines are desirable for their flexibility, smoothness, and linear extensions beyond the boundaries. However, if the conditional densities are believed to belong to a certain distribution family, then specific _z_ should be adopted. Here are two examples. 
+    + In the above example where the response is locally Gaussian, _z = "Gaussian"_ is the most appropriate choice.
+    + For the modality and skewness examples below, the response can be locally bi-modal. _z = "Gaussian"_ can not produce bi-modality structures and a more flexible spline basis should be adopted.
+    
+  * _splineDf_: the number of spline basis. Default is $10$. If you go with the natural cubic spline basis, then _splineDf_ specifies the splines' degrees of freedom, i.e., the number of spline bases. A larger _splineDf_ is able to characterize more local structures but may produce unnecessary curvatures. 
 
-  * _z_: the type of spline basis. Default is the cubic natural spline basis. Cubic natural splines are desirable for their flexibility, smoothness, and linear extensions beyond the boundaries. However, if the conditional densities are believed to belong to a certain distribution family, then specific z should be adopted. For instance, in the above example where the response is locally Gaussian, _z = "Gaussian"_ is the most appropriate choice.
+  * _df_: the ridge Poisson regression's degrees of freedom. Default is $2$. _df_ is used for determining the ridge regularization hyper-parameter. A smaller _df_ corresponds to a larger regularization parameter, and assists to avoid computational instabilities at subregions with a limited number of observations. 
 
-  * _splineDf_: the number of spline basis. Default is 10. If you go with the natural cubic spline basis, then splineDf specifies the splines' degrees of freedom, i.e., the number of spline bases. A larger splineDf is able to characterize more local structures but may produce unnecessary curvatures. 
+  * _prior_: type of the initial carrying density. Default is "Gaussian", i.e., the Gaussian distribution with the marginal response mean and the standard deviation is used as the universal density initialization. If you set _prior = "uniform"_, the uniform distribution over the response range is used. If you set _prior = "multinomial"_, the response's marginal cell probabilities are used. If you set _prior = "LindseyMarginal"_, the marginal response density estimated by Lindsey's method based on all responses is used. You can also input a homogeneous or heterogeneous conditional density function. The conditional density function should take a covariate matrix $X$, a response vector $y$, and output the densities at pairs $(X, y)$. If the prior conditional density is close to the underlying truth, e.g., a pretrained conditional density estimator, LinCDE will require less iterations. 
+  
+  In below, the prior distribution is similar to the true conditional density. It takes LinCDE about $15$ iterations to converge, much faster compared to the $50$ iterations with the Gaussian prior.
+  
+```{r, fig.height=4.5, fig.width = 6, fig.align="center", cache = TRUE}
+# input a heterogeneous conditional density function as prior
+priorDensity = function(X, y){
+  if(is.null(dim(X))){X = matrix(X, nrow = 1)}
+  result = dnorm(y, mean = 0.3 * X[,1] + X[,1] * X[,2] , sd = (0.5 + 0.25 * X[,2]))
+  return(result)
+}
 
-  * _df_: the ridge Poisson regression's degrees of freedom. Default is 2. df is used for determining the ridge regularization hyper-parameter. A smaller df corresponds to a larger regularization parameter, and assists to avoid computational instabilities at subregions with a limited number of observations. 
+examplePrior = LinCDEBoosting(y = y, X = X, z = "Gaussian", depth = 2, n.trees = 50, shrinkage = 0.1, prior = priorDensity)
+predictExamplePrior = LinCDEPredict(X = XVal, y = yVal, trees = examplePrior)
+plot(predictExamplePrior$testLogLikelihoodHistory, pch = 16, main = "depth = 2", xlab = "iteration", ylab = "log-likeihood")
+```
+  
+  * Standard boosting parameters:  
+    + _splitPoint_: a list of candidate splits. Each element is a vector corresponding to a variable's candidate splits (including the left and right end points). The list's elements are ordered the same as $X$'s columns. An alternative input is candidate split numbers, a scalar if all variables share the same number of candidate splits, a vector of length nvars if variables have different numbers of candidate splits. If candidate split numbers are given, each variable's range is divided into _splitPoint-1_ intervals, i.e., _splitPoint_ knots, containing approximately the same number of observations. Default is $20$. Note that if a variable has fewer unique values than the desired number of intervals, split intervals corresponding to each unique value are created. 
+    <!-- In this case, if there are less than _terminalSize_ observations at a unique value, the corresponding split interval will be merged to one of its neighbors. -->
+  
+    + _shrinkage_: the shrinkage parameter applied to each tree in the expansion, value in $(0,1]$. Default is $0.1$. A smaller _shrinkage_ leads to less overfitting but slower convergence.
+  
+    + _terminalSize_: the minimum number of observations in a terminal node. Default is $20$. We do not recommend a very small _terminalSize_, since the density model fit at each terminal node may involve quite a few parameters and a reasonable number of samples are needed.
+    
+In the above example, we set hyperparameters _splineDf = "Gaussian"_, _shrinkage = 0.02_, _depth = 3_, _n.trees = 300_, and leave other parameters at defualt values. 
 
-  * _prior_: type of the initial carrying density. Default is "Gaussian", i.e., the Gaussian distribution with the marginal response mean and the standard deviation is used as the universal density initialization. If the responses are more uniformly distributed, you can set _prior = "uniform"_.
-
-  * _others_: splitPoint, terminalSize, shrinkageEta, etc. For hyper-parameters shared by all tree boosting algorithms, general boosting guidance is applicable.
-
-In the above example, we set hyperparameters _splineDf = "Gaussian"_, _shrinkageEta = 0.02_, _depth = 3_, _n.trees = 300_, and leave other parameters at defualt values. 
-
-```{r}
+```{r, cache=TRUE}
 example = LinCDEBoosting(y = y, X = X, z = "Gaussian", depth = 3, n.trees = 300, shrinkage = 0.02)
 ```
+
+#### Prediction
+
+With a LinCDE model, we can predict conditional densities of an independent test dataset via function _predictLinCDE_ and evaluate LinCDE' performance. In the paper, we recommend the assessment metric: the relative improvement in the test log-likelihood
+\begin{align*}
+  \frac{\ell_{\text{LinCDE}} - \ell_{\text{null}}}{\ell_{\text{oracle}} - \ell_{\text{null}}},
+\end{align*}
+where the null model is the universal Gaussian distribution with the response's marginal mean and standard deviation, and the oracle denotes the true underlying conditional density. The criterion is analogous to the goodness-of-fit measure $R^2$ of linear regression. In this example, LinCDE achieves $83\%$ of the oracle's improvement over the null model.
+
+```{r, cache=TRUE}
+# test data
+set.seed(813)
+nTest = 1000; d = 20
+XTest = matrix(runif(nTest * d, -1, 1), ncol = d)
+yTest = 0.5 * XTest[,1] + XTest[,1] * XTest[,2] + rnorm(nTest,0,1) * (0.5 + 0.25 * XTest[,2])
+
+# LinCDE
+predictExample = LinCDEPredict(X = XTest, y = yTest, trees = example)
+# null model
+exampleNull = LinCDEBoosting(y = y, X = X, z = "Gaussian", n.trees = 0)
+predictExampleNull = LinCDEPredict(X = XTest, y = yTest, trees = exampleNull)
+# oracle
+oracle = mean(log(exampleDensity(X = XTest, y = yTest)))
+# relative improvement 
+(relativeImprovement = (predictExample$testLogLikelihood - predictExampleNull$testLogLikelihood)/(oracle - predictExampleNull$testLogLikelihood)) 
+```
+
+When the true density is unknown, the relative improvement can't be computed. However, we can still obtain and use the absolute test log-likelihood as an assessment of LinCDE's performance. Besides, the visualization tools below help evaluate LinCDE.
+
+#### Visualization
 
 For visualization, we plot the estimated conditional densities against the truth at the above $9$ landmarks. The estimated conditional densities are very close to the truth.
 
@@ -128,7 +180,7 @@ To identify the influential covariates, we plot the importance scores for each c
 
 ```{r, fig.height=4.5, fig.width = 6, fig.align="center"}
 # importance score plot
-barplot(example$importanceScore, names= paste("X", seq(1,d), sep = ""), main = "importance score", ylab = "importance", xlab = "covariates", cex.lab = 1.5, cex.main = 1.5)
+barplot(example$importanceScore, names= paste("X", seq(1,d), sep = ""), main = "importance score", ylab = "importance", xlab = "covariates", cex.lab = 1, cex.main = 1)
 ```
 
 ### More examples
@@ -136,9 +188,9 @@ The above example shows LinCDE's ability to capture location and scale changes. 
 
 For modality, we generate locally Gaussian mixture responses if $X_2 \le 0.2$, and locally Gaussian responses if $X_2 > 0.2$. Meanwhile, we let the responses' locations depend on the first covariate.
 
-We follow the aforementioned workflow and set the hyper-parameters at _shrinkageEta = 0.02_, _depth = 3_, _n.trees = 200_ (the rest parameters are at default values). 
+We follow the aforementioned workflow and set the hyper-parameters at _shrinkage = 0.02_, _depth = 3_, _n.trees = 200_ (the rest parameters are at default values). 
 
-```{r}
+```{r, cache=TRUE}
 # data generation parameters
 set.seed(100)
 n = 1000; d = 20
@@ -177,16 +229,16 @@ densityPlot(X = XProfile, trueDensity = exampleModalityDensity, trees = exampleM
 
 ```{r, fig.height=4.5, fig.width = 6, fig.align="center"}
 # importance score plot
-barplot(exampleModality$importanceScore, names= paste("X", seq(1,d), sep = ""), main = "importance score", ylab = "importance", xlab = "covariates", cex.lab = 1.5, cex.main = 1.5)
+barplot(exampleModality$importanceScore, names= paste("X", seq(1,d), sep = ""), main = "importance score", ylab = "importance", xlab = "covariates", cex.lab = 1, cex.main = 1)
 ```
 
 For skewness, we generate asymmetric Gaussian mixture responses. If $X_3 > 0$, the distribution is locally right-skewed; if $X_3 < 0$, the distribution is locally left-skewed. The larger the $|X_3|$ is, the more skewed the conditional distribution is. Meanwhile, we let the responses' locations depend on the first covariate.
 
-We follow the aforementioned workflow and set the hyper-parameters at _shrinkageEta = 0.02_, _depth = 3_, _n.trees = 200_ (the rest parameters are at default values). 
+We follow the aforementioned workflow and set the hyper-parameters at _shrinkage = 0.02_, _depth = 3_, _n.trees = 200_ (the rest parameters are at default values). 
 
 We compare the estimated conditional densities against the truth at the $9$ landmarks. The estimated conditional densities are right-skewed for $X_3 = 0.5$, left-skewed for $X_3 = -0.5$, and symmetric for $X_3 = 0$. The important covariates $X_1$ and $X_3$ are correctly identified
 
-```{r}
+```{r, cache=TRUE}
 # data generation parameters
 n = 1000; d = 20
 X = matrix(runif(n * d, -1, 1), ncol = d)
@@ -215,10 +267,10 @@ densityPlot(X = XProfile, trueDensity = exampleSkewnessDensity, trees = exampleS
 
 ```{r, fig.height=4.5, fig.width = 6, fig.align="center"}
 # importance score plot
-barplot(exampleSkewness$importanceScore, names= paste("X", seq(1,d), sep = ""), main = "importance score", ylab = "importance", xlab = "covariates", cex.lab = 1.5, cex.main = 1.5)
+barplot(exampleSkewness$importanceScore, names= paste("X", seq(1,d), sep = ""), main = "importance score", ylab = "importance", xlab = "covariates", cex.lab = 1, cex.main = 1)
 ```
 
-## Generate your own data and have fun with LinCDE!
+## Plug in your own data and have fun with LinCDE!
 
 <!-- # Pretreatments: TODO! -->
 
