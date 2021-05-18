@@ -7,7 +7,7 @@
 #' @param splitPoint a list of candidate splits, of length nvars. Each element is a vector corresponding to a variable's candidate splits (including the left and right end points). The list's elements are ordered the same as \code{X}'s columns. An alternative input is candidate split numbers, a scalar if all variables share the same number of candidate splits, a vector of length nvars if variables have different numbers of candidate splits. If candidate split numbers are given, each variable's range is divided into \code{splitPoint-1} intervals containing approximately the same number of observations. Default is 20. Note that if a variable has fewer unique values than the desired number of intervals, split intervals corresponding to each unique value are created.
 #' @param numberBin the number of bins for response discretization. Default is 40. The response range is divided into \code{numberBin} equal-width bins.
 #' @param z sufficient statistics, i.e., spline basis. For \code{z = "Gaussian"}, y, \eqn{y^2} are used. For \code{z = "bsTransform"}, transformed cubic B-splines are used. For \code{z = "nsTransform"}, transformed natural cubic splines are used. Default is "nsTransform".
-#' @param prior the type of the initial carrying density. For \code{prior = "uniform"}, the uniform distribution over the response range is used. For \code{prior = "Gaussian"}, the Gaussian distribution with the marginal response mean and standard deviation is used. For \code{prior = "multinomial"}, the response's marginal cell probabilities are used. For \code{prior = "LindseyMarginal"}, the marginal response density estimated by Lindsey's method based on all responses is used. The argument \code{prior} can also be a homogeneous or heterogeneous conditional density function. The conditional density function should take a covariate matrix X, a response vector y, and output the densities at pairs {(Xi, yi)}. See the LinCDE vignette for examples. Default is "Gaussian".
+#' @param prior the type of the initial carrying density. For \code{prior = "uniform"}, the uniform distribution over the response range is used. For \code{prior = "Gaussian"}, the Gaussian distribution with the marginal response mean and standard deviation is used. For \code{prior = "LindseyMarginal"}, the marginal response density estimated by Lindsey's method based on all responses is used. The argument \code{prior} can also be a homogeneous or heterogeneous conditional density function. The conditional density function should take a covariate matrix X, a response vector y, and output the densities at pairs {(Xi, yi)}. See the LinCDE vignette for examples. Default is "Gaussian".
 #' @param splineDf the number of sufficient statistics. If \code{z = "Gaussian"}, \code{splineDf} is set to 2. Default is 10.
 #' @param df the ridge Poisson regression's degrees of freedom. \code{df} is used for determining the ridge regularization hyper-parameter. If \code{z = "Gaussian"}, no penalization is implemented. If \code{df = splineDf}, there is no ridge penalization. Default is 2.
 #' @param penalty vector of penalties applied to each sufficient statistics' coefficient. Default is 1 for each coefficient.
@@ -15,13 +15,15 @@
 #' @param depth the number of splits of each LinCDE tree. The number of terminal nodes is \code{depth + 1}. For \code{depth = 1}, an additive model is fitted. Default is 2.
 #' @param n.trees the number of LinCDE trees to fit. Default is 100.
 #' @param shrinkage the shrinkage parameter applied to each tree in the expansion, value in (0,1]. Default is 0.1.
+#' @param augmentation  If TRUE, a conditional mean model is fitted first, and LinCDE boosting is applied to the residuals. The augmentation is recommended for responses whose conditional support varies wildly. See the LinCDE vignette for examples. Default is FALSE.
+#' @param augmentationMethod  conditional mean estimator. If \code{augmentationMethod = "linearRegression"}, a regression model is fitted to the response. If \code{augmentationMethod = "randomForest"}, a random forest model is fitted. Default is randomForest. Applies only to \code{augmentation = TRUE}.
 #' @param minY the user-provided left end of the response range. Default is \code{min(y)}.
 #' @param maxY the user-provided right end of the response range. Default is \code{max(y)}.
 #'
 #' @return LinCDE boosting returns \code{trees}: a list of LinCDE trees. An \code{importanceScore} score vector measuring the contribution of each covariate to the objective is also available. For predictions based on the fitted LinCDE boosting model, please refer to the function \code{LinCDEPredict}.
 #'
 #' @export
-LinCDEBoosting = function(y, X, splitPoint = 20, z = "nsTransform", splineDf = 10, prior = "Gaussian", numberBin = 40, df = 2, penalty = NULL, terminalSize = 20, depth = 2, n.trees = 100, shrinkage = 0.1, minY = NULL, maxY = NULL){
+LinCDEBoosting = function(y, X, splitPoint = 20, z = "nsTransform", splineDf = 10, prior = "Gaussian", numberBin = 40, df = 2, penalty = NULL, terminalSize = 20, depth = 2, n.trees = 100, shrinkage = 0.1, augmentation = FALSE, augmentationMethod = "randomForest", minY = NULL, maxY = NULL){
   alpha = 0.2; order = splineDf; type = z; z = NULL
   # pre-process
   n = length(y);
@@ -33,8 +35,18 @@ LinCDEBoosting = function(y, X, splitPoint = 20, z = "nsTransform", splineDf = 1
   }
 
   # response discretization
-  if(!is.null(minY)){y = c(y, minY)} else {y = c(y, min(y)-0.1)}
-  if(!is.null(maxY)){y = c(y, maxY)} else {y = c(y, max(y)+0.1)}
+  if(augmentation){
+    if(augmentationMethod == "randomForest"){
+      meanModel = randomForest::randomForest(y = y, x = X)
+    } else if (augmentationMethod == "linearRegression"){
+      meanModel = lm(y ~ X)
+    }
+    yPredict = predict(meanModel)
+    y = y - yPredict
+  } else {
+    if(!is.null(minY)){y = c(y, minY)} else {y = c(y, min(y)-0.1)}
+    if(!is.null(maxY)){y = c(y, maxY)} else {y = c(y, max(y)+0.1)}
+  }
   splitPointY = seq(quantile(y, probs = 0), quantile(y, probs = 1), length.out = (numberBin + 1)); h = splitPointY[2] - splitPointY[1]
   y = y[1:n]
   splitMidPointY = (splitPointY[1 : numberBin] + splitPointY[2 : (numberBin + 1)])/2
@@ -104,10 +116,6 @@ LinCDEBoosting = function(y, X, splitPoint = 20, z = "nsTransform", splineDf = 1
       cellProb = matrix(dnorm(splitMidPointY, mean = mean(y), sd = sd(y)), nrow=1)
       cellProb = cellProb/sum(cellProb)
       cellProb = cellProb[rep(1, n),]
-    } else if (prior == "multinomial"){
-      cellProb = matrix(countIndex(yIndex = yIndex, numberBin = numberBin), nrow=1) + 1 # plus 1 for robustness
-      cellProb = cellProb/sum(cellProb)
-      cellProb = cellProb[rep(1, n),]
     } else if (prior == "LindseyMarginal"){
       counts = countIndex(yIndex = yIndex, numberBin = numberBin)
       modelPrior = suppressWarnings(glmnet::glmnet(x = z, y = counts, family = "poisson", lambda = 0, alpha = 0))
@@ -128,15 +136,14 @@ LinCDEBoosting = function(y, X, splitPoint = 20, z = "nsTransform", splineDf = 1
         result$prior = prior
       } else if(prior == "Gaussian"){
         result$prior = c(prior, mean(y), sd(y))
-      } else if(prior == "multinomial"){
-        result$prior = c(prior, y)
       } else if(prior == "LindseyMarginal"){
         result$prior = c(prior, as.vector(modelPrior$beta))
       }
     } else if(class(prior) == "function"){
       result$prior = prior
     }
-    result$importanceScore = NULL; result$shrinkage = shrinkage; result$type = type
+    result$importanceScore = NULL; result$shrinkage = shrinkage; result$type = type; result$augmentation = augmentation
+    if(augmentation){result$augmentationMethod = augmentationMethod; result$augmentationModel = meanModel}
     return (result)
   }
   rootNode = data.frame(matrix(rep(0, 6 + order), nrow = 1))
@@ -145,14 +152,15 @@ LinCDEBoosting = function(y, X, splitPoint = 20, z = "nsTransform", splineDf = 1
     # recursive partitioning
     tree = LinCDEBoostingHelper(X = X, yIndex = yIndex, z = z, currDepth = 0, tree = rootNode, indexList = indexList, currNodeIndex = 1, cellProb = cellProb, improvementQueue =  collections::PriorityQueue(), splitPoint = splitPoint, numberBin = numberBin, order = order, lambda = lambda, penalty = penalty, df = df, alpha = alpha, terminalSize = terminalSize, depth = depth, shrinkage = shrinkage)
     if(is.null(tree)){
-      if(l==1) {print("no heterogeneity of conditional density is detected; the uniform prior is returned")
+      if(l==1) {print("no heterogeneity of conditional density is detected; the prior is returned")
         result = list(); result$trees = NULL; result$splitMidPointY = splitMidPointY; result$z = z; result$depth = depth
         if(prior == "uniform"){
           result$prior = "uniform"
         } else if(prior == "Gaussian"){
           result$prior = c("Gaussian", mean(y), sd(y))
         }
-        result$importanceScore = rep(0, d); result$shrinkage = shrinkage; result$type = type
+        result$importanceScore = rep(0, d); result$shrinkage = shrinkage; result$type = type; result$augmentation = augmentation
+        if(augmentation){result$augmentationMethod = augmentationMethod; result$augmentationModel = meanModel}
         return(result)
       }
       print("iteration stopped after growing trees:"); print(l-1); n.trees = l-1; break
@@ -169,15 +177,14 @@ LinCDEBoosting = function(y, X, splitPoint = 20, z = "nsTransform", splineDf = 1
       result$prior = prior
     } else if(prior == "Gaussian"){
       result$prior = c(prior, mean(y), sd(y))
-    } else if(prior == "multinomial"){
-      result$prior = c(prior, y)
     } else if(prior == "LindseyMarginal"){
       result$prior = c(prior, as.vector(modelPrior$beta))
     }
   } else if(class(prior) == "function"){
     result$prior = prior
   }
-  result$importanceScore = importanceScore(tree = trees, d = d, n.trees = n.trees); result$shrinkage = shrinkage; result$type = type
+  result$importanceScore = importanceScore(tree = trees, d = d, n.trees = n.trees); result$shrinkage = shrinkage; result$type = type; result$augmentation = augmentation
+  if(augmentation){result$augmentationMethod = augmentationMethod; result$augmentationModel = meanModel}
   return(result)
 }
 

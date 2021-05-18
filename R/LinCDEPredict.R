@@ -21,6 +21,15 @@ LinCDEPredict = function(X, y = NULL, trees, splitPointYTest = NULL){
   n = dim(X)[1]; d = dim(X)[2];
   if(!is.null(y)){full = TRUE} else {full = FALSE; y = rnorm(n)}
   z = trees$z; k = dim(z)[2]; depth = trees$depth; type = trees$type
+  augmentation = trees$augmentation; augmentationMethod = trees$augmentationMethod
+  # if(augmentation){
+  #   if(augmentationMethod == "linearRegression"){
+  #     yMean = predict(trees$augmentationModel, newdata = X);
+  #   } else if(augmentationMethod == "randomForest"){
+  #     yMean = randomForest::predict.randomForest(trees$augmentationModel, newdata = X);
+  #   }
+  #   y = y - yMean
+  # }
   splitMidPointY = trees$splitMidPointY; h = splitMidPointY[2] - splitMidPointY[1]; numberBin = length(splitMidPointY); splitPointY = c(splitMidPointY - h/2, splitMidPointY[numberBin] + h/2); splitPointY = c(splitPointY, Inf);
   if(!is.null(splitPointYTest[1])){
     if(type == "Gaussian"){
@@ -67,24 +76,6 @@ LinCDEPredict = function(X, y = NULL, trees, splitPointYTest = NULL){
     } else if (trees$prior[1] == "Gaussian"){
       cellProb0 = matrix(dnorm(splitMidPointY, mean = as.numeric(trees$prior[2]), sd = as.numeric(trees$prior[3])), nrow = 1)
       cellProb0 = cellProb0/sum(cellProb0)
-    } else if (trees$prior[1] == "multinomial"){
-      yTrain = as.numeric(trees$prior[-1]); nTrain = length(yTrain)
-      yTrainSort = sort(yTrain, decreasing = FALSE); yTrainIndex = rep(0, nTrain); counter = 1
-      numberStop = min(nTrain+1,which(yTrainSort >= splitPointY[numberBin+1]))-1
-      i=1
-      while(i <= numberStop){
-        if(yTrainSort[i] >= splitPointY[counter+1]){
-          counter = counter+1
-          if(yTrainSort[i] >= splitPointY[counter+1]){next}
-        }
-        yTrainIndex[i] = counter; i = i+1
-      }
-      if(numberStop < nTrain){
-        yTrainIndex[(1+numberStop):nTrain] = numberBin
-      }
-      yTrainIndex[order(yTrain, decreasing = FALSE)] = yTrainIndex
-      cellProb0 = matrix(countIndex(yIndex = yTrainIndex, numberBin = numberBin), nrow=1) + 1 # plus 1 for robustness
-      cellProb0 = cellProb0/sum(cellProb0)
     } else if (trees$prior[1] == "LindseyMarginal"){
       betaPrior = as.numeric(trees$prior[-1])
       cellProb0 = matrix(exp(z %*% betaPrior), nrow=1)
@@ -125,6 +116,8 @@ LinCDEPredict = function(X, y = NULL, trees, splitPointYTest = NULL){
       result$density = cellProb0[cbind(seq(1,n), yIndex)]/h; result$testLogLikelihood = mean(log(result$density))}
       else{result$density = NA; result$testLogLikelihood = NA}
     result$cellProb = cellProb0; result$splitPointY = splitPointY[-(numberBin+2)]
+    result$augmentation = augmentation
+    # if(augmentation){result$yMean = yMean}
     return(result)
   }
 
@@ -179,5 +172,7 @@ LinCDEPredict = function(X, y = NULL, trees, splitPointYTest = NULL){
     result$density = cellProb[cbind(seq(1,n), yIndex)]/h; result$testLogLikelihood = mean(log(result$density))}
   else{result$density = NA; result$testLogLikelihood = NA}
   result$cellProb = cellProb; result$splitPointY = splitPointY[-(numberBin+2)]; result$testLogLikelihoodHistory = testLogLikelihood
+  result$augmentation = augmentation
+  # if(augmentation){result$yMean = yMean}
   return(result)
 }

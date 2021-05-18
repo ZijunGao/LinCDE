@@ -104,7 +104,7 @@ There are a number of secondary hyper-parameters. We recommend starting with the
 
   * _df_: the ridge Poisson regression's degrees of freedom. Default is $2$. _df_ is used for determining the ridge regularization hyper-parameter. A smaller _df_ corresponds to a larger regularization parameter, and assists to avoid computational instabilities at subregions with a limited number of observations. 
 
-  * _prior_: type of the initial carrying density. Default is "Gaussian", i.e., the Gaussian distribution with the marginal response mean and the standard deviation is used as the universal density initialization. If you set _prior = "uniform"_, the uniform distribution over the response range is used. If you set _prior = "multinomial"_, the response's marginal cell probabilities are used. If you set _prior = "LindseyMarginal"_, the marginal response density estimated by Lindsey's method based on all responses is used. You can also input a homogeneous or heterogeneous conditional density function. The conditional density function should take a covariate matrix $X$, a response vector $y$, and output the densities at pairs $(X, y)$. If the prior conditional density is close to the underlying truth, e.g., a pretrained conditional density estimator, LinCDE will require less iterations. 
+  * _prior_: type of the initial carrying density. Default is "Gaussian", i.e., the Gaussian distribution with the marginal response mean and the standard deviation is used as the universal density initialization. If you set _prior = "uniform"_, the uniform distribution over the response range is used. If you set _prior = "LindseyMarginal"_, the marginal response density estimated by Lindsey's method based on all responses is used. You can also input a homogeneous or heterogeneous conditional density function. The conditional density function should take a covariate matrix $X$, a response vector $y$, and output the densities at pairs $(X, y)$. If the prior conditional density is close to the underlying truth, e.g., a pretrained conditional density estimator, LinCDE will require less iterations. 
   
   In below, the prior distribution is similar to the true conditional density. It takes LinCDE about $15$ iterations to converge, much faster compared to the $50$ iterations with the Gaussian prior.
   
@@ -129,6 +129,10 @@ plot(predictExamplePrior$testLogLikelihoodHistory, pch = 16, main = "depth = 2",
   
     + _terminalSize_: the minimum number of observations in a terminal node. Default is $20$. We do not recommend a very small _terminalSize_, since the density model fit at each terminal node may involve quite a few parameters and a reasonable number of samples are needed.
     
+  * Mean augmentation parameters:
+    + _augmentation_: If true, a conditional mean model is fitted first, and LinCDE boosting is applied to the residuals. The augmentation is recommended for responses whose conditional support varies wildly. See below for an example. Default is false.
+    + _augmentationMethod_: conditional mean estimator. If _augmentationMethod = "linearRegression"_, a regression model is fitted to the response. If _augmentationMethod = "randomForest"_, a random forest model is fitted. Default is fitting a random forest. Applies only to _augmentation = TRUE_.
+
 In the above example, we set hyperparameters _splineDf = "Gaussian"_, _shrinkage = 0.02_, _depth = 3_, _n.trees = 300_, and leave other parameters at defualt values. 
 
 ```{r, cache=TRUE}
@@ -202,7 +206,7 @@ y = 0.25 * X[,1] + (X[,2] <= 0.2) * y + (X[,2] > 0.2) * rnorm(n, 0, 0.8)
 exampleModality = LinCDEBoosting(y = y, X = X, depth = 3, n.trees = 200, shrinkage = 0.02)
 ```
 
-We compare the estimated conditional densities against the truth at the $9$ landmarks. The estimated conditional densities are clearly bi-modal for $X_2 = -0.5$ or $X_2 = 0$. For $X_2 = 0.5$, the estimated conditional densities are largely Gaussian with mild curvatures in the middle. The important covariates $X_1$ and $X_2$ are correctly identified.
+We compare the estimated conditional densities against the truth at $9$ landmarks. The estimated conditional densities are clearly bi-modal for $X_2 = -0.5$ or $X_2 = 0$. For $X_2 = 0.5$, the estimated conditional densities are largely Gaussian with mild curvatures in the middle. The important covariates $X_1$ and $X_2$ are correctly identified.
 
 <!-- When a shallow tree is grown, the terminal nodes may consist of heterogeneous samples, and the fitted densities will be a mixture of the Gaussian mixture and Gaussian. -->
 
@@ -236,7 +240,7 @@ For skewness, we generate asymmetric Gaussian mixture responses. If $X_3 > 0$, t
 
 We follow the aforementioned workflow and set the hyper-parameters at _shrinkage = 0.02_, _depth = 3_, _n.trees = 200_ (the rest parameters are at default values). 
 
-We compare the estimated conditional densities against the truth at the $9$ landmarks. The estimated conditional densities are right-skewed for $X_3 = 0.5$, left-skewed for $X_3 = -0.5$, and symmetric for $X_3 = 0$. The important covariates $X_1$ and $X_3$ are correctly identified
+We compare the estimated conditional densities against the truth at $9$ landmarks. The estimated conditional densities are right-skewed for $X_3 = 0.5$, left-skewed for $X_3 = -0.5$, and symmetric for $X_3 = 0$. The important covariates $X_1$ and $X_3$ are correctly identified
 
 ```{r, cache=TRUE}
 # data generation parameters
@@ -270,9 +274,63 @@ densityPlot(X = XProfile, trueDensity = exampleSkewnessDensity, trees = exampleS
 barplot(exampleSkewness$importanceScore, names= paste("X", seq(1,d), sep = ""), main = "importance score", ylab = "importance", xlab = "covariates", cex.lab = 1, cex.main = 1)
 ```
 
+### Mean augmentation
+
+If a distribution's conditional components differ violently in location, then the response discretization in Lindsey's method could be problematic. In any local area, only a few bins are effective and the rest see no observations. Such grouping is coarse and there are no sufficient degrees of freedom to capture the distributional properties. We call this the "disjoint support" problem.
+
+We propose to solve the "disjoint support" problem by mean augmentation. In particular, we suggest aligning the centers of the conditional densities in advance by estimating the conditional means first and subtracting the estimates from the responses. The residuals' supports are less heterogeneous, and we apply LinCDE boosting to the residuals to capture additional distributional structures. 
+
+In the following example, we generate locally Gaussian mixture responses if $X_2 \le 0.2$, and locally Gaussian responses if $X_2 > 0.2$. Meanwhile, we let the responses' supports differ dramatically as $X_1$ changes, and thus the "disjoint support" problem is present.
+
+We follow the aforementioned workflow and set the hyper-parameters at _shrinkage = 0.02_, _depth = 3_, _n.trees = 200_ (the rest parameters are at default values). We compare LinCDE boosting with and without mean augmentation. For mean augmentation, we use linear regression to estimate the conditional mean.
+
+We compute the estimated conditional densities against the truth at $9$ landmarks. Without mean augmentation, LinCDE boosting identifies the location shift but the predicted conditional densities are unimodal everywhere. With mean augmentation, LinCDE boosting manages to produce the bi-modal structure for $X_2 \le 0.2$.
+
+```{r, cache=TRUE}
+# data generation parameters
+set.seed(100)
+n = 1000; d = 20
+X = matrix(runif(n * d, -1, 1), ncol = d)
+groupIndex = rbinom(n, 1, 0.5)
+y = groupIndex * rnorm(n, -0.8, 0.3) + (1-groupIndex) * rnorm(n, 0.8, 0.3)
+y = 4 * X[,1] + (X[,2] <= 0.2) * y + (X[,2] > 0.2) * rnorm(n, 0, 0.8)
+
+# without mean augmentation
+exampleAugmentation = LinCDEBoosting(y = y, X = X, depth = 3, n.trees = 200, shrinkage = 0.02)
+# with mean augmentation
+exampleAugmentationOLS = LinCDEBoosting(y = y, X = X, depth = 3, n.trees = 200, shrinkage = 0.02, augmentation = TRUE, augmentationMethod = "linearRegression")
+```
+
+
+```{r,fig.height=5.3, fig.width = 7, fig.align="center"}
+# conditional density plot
+XProfile = matrix(runif(3^2 * d,-1,1), nrow = 3^2, ncol = d)
+XProfile[1:(3^2-1),1] = rep(c(-0.5,0.5), 4)
+XProfile[1:(3^2-1),2] = rep(rep(c(-0.5,0.5), rep(2,2)),2)
+XProfile[1:(3^2-1),3] = rep(c(-0.5,0.5), c(4,4))
+XProfile[3^2,1:3] = rep(0,3)
+
+exampleAugmentationDensity = function(X, y){
+  if(is.null(dim(X))){X = matrix(X, nrow = 1)}
+  result = rep(0, length(y))
+  index = which(X[,2] < 0.2)
+  result[index] = (0.5 * dnorm(y[index], mean = 4 * X[index,1] + 0.8, sd = 0.3) + 0.5 * dnorm(y[index], mean = 4 * X[index,1] - 0.8, sd = 0.3))
+  result[-index] = dnorm(y[-index], mean = 4 * X[-index,1], sd = 0.8)
+  return(result)
+}
+
+# without mean augmentation
+densityPlot(X = XProfile, trueDensity = exampleAugmentationDensity, trees = exampleAugmentation)
+```
+
+```{r,fig.height=5.3, fig.width = 7, fig.align="center"}
+# with mean augmentation
+yMeanOLS = cbind(1,XProfile) %*% exampleAugmentationOLS$augmentationModel$coefficients
+densityPlot(X = XProfile, trueDensity = exampleAugmentationDensity, trees = exampleAugmentationOLS, yMean = yMeanOLS)
+```
+
 ## Plug in your own data and have fun with LinCDE!
 
-<!-- # Pretreatments: TODO! -->
 
 <!-- # References -->
 
