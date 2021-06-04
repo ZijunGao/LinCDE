@@ -39,7 +39,7 @@ Before all, install and attach the LinCDE package.
 library("LinCDE")
 ```
 
-Next, we prepare the example dataset. The function requires a covariate matrix and a response vector. In this example, we generate $20$ covariates uniformly from $[-1,1]$. Given a covariate value, the response is locally Gaussian. The response depends on the covariates through its mean and variance. In particular, $X_1$ and $X_2$ influence the response's mean, and $X_2$ also influences the response's variance. The lattice plot below visualizes the conditional densities at $9$ different covariate values. We conduct conditional density estimation based on $1000$ independent samples.
+Next, we prepare the example dataset. The LinCDE estimator requires a covariate matrix and a response vector. In this example, we generate $20$ covariates uniformly from $[-1,1]$. Given a covariate value, the response is locally Gaussian. The response depends on the covariates through its mean and variance. In particular, $X_1$ and $X_2$ influence the response's mean, and $X_2$ also influences the response's variance. The lattice plot below visualizes the conditional densities at $9$ different covariate values. We conduct conditional density estimation based on $1000$ independent samples.
 
 ```{r}
 # training data

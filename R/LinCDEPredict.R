@@ -11,25 +11,27 @@
 #' \item density: conditional density predictions at \code{y}, vector of length nobs. If \code{y = NULL}, return \code{NA}.
 #' \item testLogLikelihood: average test log-likelihood at \code{y}. If \code{y = NULL}, return \code{NA}.
 #' \item cellProb: cell probability prediction matrix, of dimension nobs x number of discretization bins; each row represents a cell probability vector.
-#' \item splitPointYTest: vector of response split points, of length number of discretization bins + 1. If \code{splitPointYTest = NULL}, response split points from the LinCDE boosting model \code{trees} are used. Default is \code{NULL}.
+#' \item yDiscretized: vector of discretized responses/response residuals, of length number of discretization bins. If \code{splitPointYTest = NULL}, discretized responses/response residuals from the LinCDE boosting model \code{trees} are used.
 #' }
 #'
 #' @export
 LinCDEPredict = function(X, y = NULL, trees, splitPointYTest = NULL){
   # pre-process
+  if(class(X)[1] == "data.frame"){X = as.matrix(X)}
   if(is.null(dim(X))){X = matrix(X, nrow = 1)} # predict on one observation
   n = dim(X)[1]; d = dim(X)[2];
   if(!is.null(y)){full = TRUE} else {full = FALSE; y = rnorm(n)}
   z = trees$z; k = dim(z)[2]; depth = trees$depth; type = trees$type
   augmentation = trees$augmentation; augmentationMethod = trees$augmentationMethod
-  # if(augmentation){
-  #   if(augmentationMethod == "linearRegression"){
-  #     yMean = predict(trees$augmentationModel, newdata = X);
-  #   } else if(augmentationMethod == "randomForest"){
-  #     yMean = randomForest::predict.randomForest(trees$augmentationModel, newdata = X);
-  #   }
-  #   y = y - yMean
-  # }
+  # ???
+  if(augmentation){
+    if(augmentationMethod == "linearRegression"){
+      yMean = predict(trees$augmentationModel, newdata = X);
+    } else if(augmentationMethod == "randomForest"){
+      yMean = predict(trees$augmentationModel, newdata = X);
+    }
+    y = y - yMean
+  }
   splitMidPointY = trees$splitMidPointY; h = splitMidPointY[2] - splitMidPointY[1]; numberBin = length(splitMidPointY); splitPointY = c(splitMidPointY - h/2, splitMidPointY[numberBin] + h/2); splitPointY = c(splitPointY, Inf);
   if(!is.null(splitPointYTest[1])){
     if(type == "Gaussian"){
@@ -112,12 +114,12 @@ LinCDEPredict = function(X, y = NULL, trees, splitPointYTest = NULL){
   if(numTree == 0){
     result = list()
     if(full){
-      # result$density = cellProb0[yIndex]/h; result$testLogLikelihood = mean(log(result$density))}
+      # result$density = cellProb0[yIndex]/h; result$testLogLikelihood = mean(log(result$density))
       result$density = cellProb0[cbind(seq(1,n), yIndex)]/h; result$testLogLikelihood = mean(log(result$density))}
       else{result$density = NA; result$testLogLikelihood = NA}
-    result$cellProb = cellProb0; result$splitPointY = splitPointY[-(numberBin+2)]
+    result$cellProb = cellProb0; result$yDiscretized = (splitPointY[-c(1, numberBin+2)] + splitPointY[-c(numberBin+1, numberBin+2)])/2
     result$augmentation = augmentation
-    # if(augmentation){result$yMean = yMean}
+    if(augmentation){result$yMean = yMean}
     return(result)
   }
 
@@ -158,8 +160,10 @@ LinCDEPredict = function(X, y = NULL, trees, splitPointYTest = NULL){
     beta = beta + betaTemp[nodeMembership[,i],] * shrinkage
 
     cellProb = exp(as.matrix(beta) %*% t(z)) * cellProb0 # homogeneous prior -
+    if(full){
     temp = mean(log(cellProb[cbind(seq(1,n), yIndex)]/h)) - mean(log(apply(cellProb, 1, sum)))
     testLogLikelihood = c(testLogLikelihood, temp)
+    }
   }
   # beta = beta * shrinkage
   cellProb = exp(as.matrix(beta) %*% t(z)) * cellProb0 # homogeneous prior
@@ -171,8 +175,8 @@ LinCDEPredict = function(X, y = NULL, trees, splitPointYTest = NULL){
   if(full){
     result$density = cellProb[cbind(seq(1,n), yIndex)]/h; result$testLogLikelihood = mean(log(result$density))}
   else{result$density = NA; result$testLogLikelihood = NA}
-  result$cellProb = cellProb; result$splitPointY = splitPointY[-(numberBin+2)]; result$testLogLikelihoodHistory = testLogLikelihood
+  result$cellProb = cellProb; result$yDiscretized = (splitPointY[-c(1, numberBin+2)] + splitPointY[-c(numberBin+1, numberBin+2)])/2; result$testLogLikelihoodHistory = testLogLikelihood
   result$augmentation = augmentation
-  # if(augmentation){result$yMean = yMean}
+  if(augmentation){result$yMean = yMean}
   return(result)
 }

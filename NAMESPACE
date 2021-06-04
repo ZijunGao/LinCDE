@@ -1,3 +1,4 @@
 useDynLib(LinCDE, .registration=TRUE)
 importFrom(Rcpp, evalCpp)
+import(randomForest)
 exportPattern("^[[:alpha:]]+")

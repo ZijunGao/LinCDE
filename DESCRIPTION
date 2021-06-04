@@ -13,4 +13,5 @@ LinkingTo: Rcpp
 Suggests: 
     rmarkdown,
     knitr
+Imports: randomForest
 VignetteBuilder: knitr

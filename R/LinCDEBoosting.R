@@ -27,6 +27,7 @@ LinCDEBoosting = function(y, X, splitPoint = 20, z = "nsTransform", splineDf = 1
   alpha = 0.2; order = splineDf; type = z; z = NULL
   # pre-process
   n = length(y);
+  if(class(X)[1] == "data.frame"){X = as.matrix(X)}
   if(is.null(dim(X))){X = matrix(X, ncol = 1)} # one covariate
   d = dim(X)[2]
   # candidate splits
