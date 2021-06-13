@@ -180,3 +180,42 @@ LinCDEPredict = function(X, y = NULL, trees, splitPointYTest = NULL){
   if(augmentation){result$yMean = yMean}
   return(result)
 }
+
+
+# prediction of a LinCDE tree
+# a subroutine in LinCDEBoosting
+# input:
+#   X: covariate matrix
+#   tree: a LinCDE tree
+# output:
+#   membership: length n vector: each element represents the row (terminal node) that a sample falls into
+
+# debug
+# test = LinCDETreePredict(X = X, tree = LinCDEBoosting$trees[[2]], currentRow = 1)
+# test2 = LinCDETreePredict(X = X[c(1,2),], tree = LinCDEBoosting$trees[[2]], currentRow = 1)
+LinCDETreePredict = function(X, tree, currentRow = 1){
+  if(is.null(dim(X))){X = matrix(X, nrow = 1)}
+  if(tree$SplitVar[currentRow] == 0){
+    membership = rep(currentRow, dim(X)[1]); return(membership)
+  }
+  indexLeft = which(X[,tree$SplitVar[currentRow]] <= tree$SplitCodePred[currentRow])
+  if(length(indexLeft) > 0){
+    membershipLeft = LinCDETreePredict(X = X[indexLeft, ], tree = tree, currentRow = tree$LeftNode[currentRow])
+  } else {
+    membership = LinCDETreePredict(X = X, tree = tree, currentRow = tree$RightNode[currentRow])
+    return(membership)
+  }
+  if(length(indexLeft) < dim(X)[1]){
+    membershipRight = LinCDETreePredict(X = X[-indexLeft, ], tree = tree, currentRow = tree$RightNode[currentRow])
+    membership = rep(0, dim(X)[1])
+    membership[indexLeft] = membershipLeft
+    membership[-indexLeft] = membershipRight
+    return(membership)
+  } else {
+    return(membershipLeft)
+  }
+}
+
+
+
+

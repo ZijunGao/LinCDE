@@ -15,6 +15,7 @@
 #' @param depth the number of splits of each LinCDE tree. The number of terminal nodes is \code{depth + 1}. For \code{depth = 1}, an additive model is fitted. Default is 2.
 #' @param n.trees the number of LinCDE trees to fit. Default is 100.
 #' @param shrinkage the shrinkage parameter applied to each tree in the expansion, value in (0,1]. Default is 0.1.
+#' @param subsample subsample ratio of the training samples. Default is 1.
 #' @param augmentation  If TRUE, a conditional mean model is fitted first, and LinCDE boosting is applied to the residuals. The augmentation is recommended for responses whose conditional support varies wildly. See the LinCDE vignette for examples. Default is FALSE.
 #' @param augmentationMethod  conditional mean estimator. If \code{augmentationMethod = "linearRegression"}, a regression model is fitted to the response. If \code{augmentationMethod = "randomForest"}, a random forest model is fitted. Default is randomForest. Applies only to \code{augmentation = TRUE}.
 #' @param minY the user-provided left end of the response range. Default is \code{min(y)}.
@@ -23,7 +24,7 @@
 #' @return LinCDE boosting returns \code{trees}: a list of LinCDE trees. An \code{importanceScore} score vector measuring the contribution of each covariate to the objective is also available. For predictions based on the fitted LinCDE boosting model, please refer to the function \code{LinCDEPredict}.
 #'
 #' @export
-LinCDEBoosting = function(y, X, splitPoint = 20, z = "nsTransform", splineDf = 10, prior = "Gaussian", numberBin = 40, df = 2, penalty = NULL, terminalSize = 20, depth = 2, n.trees = 100, shrinkage = 0.1, augmentation = FALSE, augmentationMethod = "randomForest", minY = NULL, maxY = NULL){
+LinCDEBoosting = function(y, X, splitPoint = 20, z = "nsTransform", splineDf = 10, prior = "Gaussian", numberBin = 40, df = 2, penalty = NULL, terminalSize = 20, depth = 2, n.trees = 100, shrinkage = 0.1, subsample = 1, augmentation = FALSE, augmentationMethod = "randomForest", minY = NULL, maxY = NULL){
   alpha = 0.2; order = splineDf; type = z; z = NULL
   # pre-process
   n = length(y);
@@ -44,6 +45,7 @@ LinCDEBoosting = function(y, X, splitPoint = 20, z = "nsTransform", splineDf = 1
     }
     yPredict = predict(meanModel)
     y = y - yPredict
+    y = c(y, 1.02 * min(y) -0.02* max(y), 1.02 * max(y) - 0.02 * min(y))
   } else {
     if(!is.null(minY)){y = c(y, minY)} else {y = c(y, min(y)-0.1)}
     if(!is.null(maxY)){y = c(y, maxY)} else {y = c(y, max(y)+0.1)}
@@ -148,27 +150,58 @@ LinCDEBoosting = function(y, X, splitPoint = 20, z = "nsTransform", splineDf = 1
     return (result)
   }
   rootNode = data.frame(matrix(rep(0, 6 + order), nrow = 1))
-  indexList = list(); indexList[[1]] = seq(1, n)
-  for(l in 1:n.trees){
-    # recursive partitioning
-    tree = LinCDEBoostingHelper(X = X, yIndex = yIndex, z = z, currDepth = 0, tree = rootNode, indexList = indexList, currNodeIndex = 1, cellProb = cellProb, improvementQueue =  collections::PriorityQueue(), splitPoint = splitPoint, numberBin = numberBin, order = order, lambda = lambda, penalty = penalty, df = df, alpha = alpha, terminalSize = terminalSize, depth = depth, shrinkage = shrinkage)
-    if(is.null(tree)){
-      if(l==1) {print("no heterogeneity of conditional density is detected; the prior is returned")
-        result = list(); result$trees = NULL; result$splitMidPointY = splitMidPointY; result$z = z; result$depth = depth
-        if(prior == "uniform"){
-          result$prior = "uniform"
-        } else if(prior == "Gaussian"){
-          result$prior = c("Gaussian", mean(y), sd(y))
+  if(subsample == 1){
+    indexList = list(); indexList[[1]] = seq(1, n)
+    for(l in 1:n.trees){
+      # recursive partitioning
+      tree = LinCDEBoostingHelper(X = X, yIndex = yIndex, z = z, currDepth = 0, tree = rootNode, indexList = indexList, currNodeIndex = 1, cellProb = cellProb, improvementQueue =  collections::PriorityQueue(), splitPoint = splitPoint, numberBin = numberBin, order = order, lambda = lambda, penalty = penalty, df = df, alpha = alpha, terminalSize = terminalSize, depth = depth, shrinkage = shrinkage)
+      if(is.null(tree)){
+        if(l==1) {print("no heterogeneity of conditional density is detected; the prior is returned")
+          result = list(); result$trees = NULL; result$splitMidPointY = splitMidPointY; result$z = z; result$depth = depth
+          if(prior == "uniform"){
+            result$prior = "uniform"
+          } else if(prior == "Gaussian"){
+            result$prior = c("Gaussian", mean(y), sd(y))
+          }
+          result$importanceScore = rep(0, d); result$shrinkage = shrinkage; result$type = type; result$augmentation = augmentation
+          if(augmentation){result$augmentationMethod = augmentationMethod; result$augmentationModel = meanModel}
+          return(result)
         }
-        result$importanceScore = rep(0, d); result$shrinkage = shrinkage; result$type = type; result$augmentation = augmentation
-        if(augmentation){result$augmentationMethod = augmentationMethod; result$augmentationModel = meanModel}
-        return(result)
+        print("iteration stopped after growing trees:"); print(l-1); n.trees = l-1; break
       }
-      print("iteration stopped after growing trees:"); print(l-1); n.trees = l-1; break
+      trees[[l]] = tree$tree
+      colnames(trees[[l]]) = c("SplitVar", "SplitCodePred", "LeftNode", "RightNode", "ErrorReduction", "Weight", betaName)
+      cellProb = tree$cellProb
     }
-    trees[[l]] = tree$tree
-    colnames(trees[[l]]) = c("SplitVar", "SplitCodePred", "LeftNode", "RightNode", "ErrorReduction", "Weight", betaName)
-    cellProb = tree$cellProb
+  } else {
+    indexList = list(); indexList[[1]] = seq(1, floor(n * subsample))
+    if(floor(n * subsample) <= 100){stop("insufficient number of samples for LinCDE boosting")}
+    for(l in 1:n.trees){
+      indexSubsample = sample(n, floor(n * subsample), replace = FALSE)
+      # recursive partitioning
+      tree = LinCDEBoostingHelper(X = X[indexSubsample, ], yIndex = yIndex[indexSubsample], z = z, currDepth = 0, tree = rootNode, indexList = indexList, currNodeIndex = 1, cellProb = cellProb[indexSubsample, ], improvementQueue =  collections::PriorityQueue(), splitPoint = splitPoint, numberBin = numberBin, order = order, lambda = lambda, penalty = penalty, df = df, alpha = alpha, terminalSize = terminalSize, depth = depth, shrinkage = shrinkage)
+      if(is.null(tree)){
+        if(l==1) {print("no heterogeneity of conditional density is detected; the prior is returned")
+          result = list(); result$trees = NULL; result$splitMidPointY = splitMidPointY; result$z = z; result$depth = depth
+          if(prior == "uniform"){
+            result$prior = "uniform"
+          } else if(prior == "Gaussian"){
+            result$prior = c("Gaussian", mean(y), sd(y))
+          }
+          result$importanceScore = rep(0, d); result$shrinkage = shrinkage; result$type = type; result$augmentation = augmentation
+          if(augmentation){result$augmentationMethod = augmentationMethod; result$augmentationModel = meanModel}
+          return(result)
+        }
+        print("iteration stopped after growing trees:"); print(l-1); n.trees = l-1; break
+      }
+      trees[[l]] = tree$tree
+      colnames(trees[[l]]) = c("SplitVar", "SplitCodePred", "LeftNode", "RightNode", "ErrorReduction", "Weight", betaName)
+      cellProb[indexSubsample, ] = tree$cellProb
+      membership = LinCDETreePredict(X = X[-indexSubsample,], tree = trees[[l]], currentRow = 1)
+      probDelta = matrix(as.matrix(trees[[l]][,-seq(1,6)]) %*% t(z), ncol = numberBin) * shrinkage
+      temp = matrix(cellProb[-indexSubsample,] * exp(probDelta)[membership,], ncol = numberBin)
+      cellProb[-indexSubsample,] = temp/apply(temp, 1, sum)
+    }
   }
 
   # post-process

@@ -76,7 +76,8 @@ LinCDEExample = function(setting = "GLM", m = 2){
     GaussianNullProfile[l,] = dnorm(yProfile, mean = meanTemp, sd = sdTemp)
 
     # LinCDE boosting
-    LinCDEBoosting = LinCDEBoosting(y = y, X = X, splitPoint = numberSplit, numberBin = numberBin, z = "nsTransform", splineDf = splineDf, df = df, terminalSize = 20, depth = depth, n.trees = times, shrinkage = shrinkageEta, minY = splitPointYTest[1], maxY = splitPointYTest[numberBinTest+1], prior = prior)
+    # startTime = proc.time()
+    LinCDEBoosting = LinCDEBoosting(y = y, X = X, splitPoint = numberSplit, numberBin = numberBin, z = "nsTransform", splineDf = splineDf, df = df, terminalSize = 20, depth = depth, n.trees = times, shrinkage = shrinkageEta, subsample = 1, minY = splitPointYTest[1], maxY = splitPointYTest[numberBinTest+1], prior = prior)
     predictLinCDEBoosting = LinCDEPredict(X = XTest, y = yTest, trees = LinCDEBoosting, splitPointYTest = splitPointYTest)
     LinCDEBoostingLL[l] = predictLinCDEBoosting$testLogLikelihood
     LinCDEBoostingImportance[l,] = LinCDEBoosting$importanceScore

@@ -90,8 +90,8 @@ constructSplitPoint = function(X, numberSplit){
       valueUnique = sort(unique(X[,i]), decreasing = FALSE)
       splitPoint[[i]] = c(valueUnique[1],(valueUnique[-numberUnique] + valueUnique[-1])/2, valueUnique[numberUnique])
     } else {
-      # quantiles
-      splitPoint[[i]] = quantile(X[,i], probs = seq(0,1,length.out = numberSplit[i]))[-1]
+      # quantiles; remove potential duplicates
+      splitPoint[[i]] = unique(quantile(X[,i], probs = seq(0,1,length.out = numberSplit[i]))[-1])
     }
     names(splitPoint[[i]]) = NULL
   }
