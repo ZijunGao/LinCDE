@@ -1,28 +1,6 @@
 #include <Rcpp.h>
 using namespace Rcpp;
 
-// function: splitting (C++)
-// input:
-// data:
-// X: matrix of covariates (n by d)
-// yIndex: vector of the bin indices that responses belong to (length n): value from 1 to numberBin
-// z: matrix of sufficient statistics evaluated at center-points of each bin (numberBin by k)
-// covMatrixInv: inverse of psi'' (k by k)
-
-// hyper-parameters:
-// splitPoint: a candidate split list (length nvars). Each element is a vector corresponding to a certain variable's candidate splits (including the left and right end points).
-// numberBin: number of bins for the response discretization.
-// Divide the range of y into numberBin equal width bins
-
-// output:
-// splitVar: the index of the variable to split at
-// splitVal: the cut-point of the split
-// improvement: the contribution of the split to the objective
-
-// remark:
-// a split is invalid if the sample size on the left or right of the split falls below 10
-
-
 IntegerVector orderIndex(NumericVector arr) {
   // if (is_true(any(duplicated(x)))) {
   //   Rf_warning("There are duplicates in 'x'; order not guaranteed to match that of R's base::order");
@@ -31,6 +9,20 @@ IntegerVector orderIndex(NumericVector arr) {
   return match(sorted, arr);
 }
 
+//' LinCDESplit
+//'
+//' This function computes the approximately optimal split in C++. A split is invalid if the sample size on the left or right of the split falls below 10
+//'
+//' @param X input matrix, of dimension nobs x nvars; each row represents an observation vector.
+//' @param yIndex discretized response vector, of length nobs.
+//' @param cellProb cell probability matrix, of dimension nobs x \code{numberBin}.
+//' @param z sufficient statistics matrix, of dimension \code{numberBin} x number of sufficient statistics.
+//' @param covMatrixInv inverse of psi'' (number of sufficient statistics x number of sufficient statistics).
+//' @param splitPoint a candidate split list (length nvars). Each element is a vector corresponding to a certain variable's candidate splits (including the left and right end points).
+//' @param numberBin the number of bins for response discretization.
+//'
+//' @return The function returns \code{splitVar}: the index of the variable to split at; \code{splitVal}: the cut-point of the split; \code{improvement}: the contribution of the split to the objective.
+//'
 //[[Rcpp::export]]
 NumericVector LinCDESplit(const NumericMatrix& X, const IntegerVector& yIndex,
                           const NumericMatrix& cellProb, const NumericMatrix& z,

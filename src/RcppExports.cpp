@@ -5,6 +5,11 @@
 
 using namespace Rcpp;
 
+#ifdef RCPP_USE_GLOBAL_ROSTREAM
+Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
+Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
+#endif
+
 // LinCDECdf
 NumericVector LinCDECdf(const NumericMatrix& cellProb, const NumericVector& y, const NumericVector& splitPointY);
 RcppExport SEXP _LinCDE_LinCDECdf(SEXP cellProbSEXP, SEXP ySEXP, SEXP splitPointYSEXP) {
@@ -45,16 +50,6 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const List& >::type splitPoint(splitPointSEXP);
     Rcpp::traits::input_parameter< const int& >::type numberBin(numberBinSEXP);
     rcpp_result_gen = Rcpp::wrap(LinCDESplit(X, yIndex, cellProb, z, covMatrixInv, splitPoint, numberBin));
-    return rcpp_result_gen;
-END_RCPP
-}
-// rcpp_hello_world
-List rcpp_hello_world();
-RcppExport SEXP _LinCDE_rcpp_hello_world() {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    rcpp_result_gen = Rcpp::wrap(rcpp_hello_world());
     return rcpp_result_gen;
 END_RCPP
 }

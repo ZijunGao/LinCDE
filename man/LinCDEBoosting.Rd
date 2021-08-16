@@ -9,15 +9,18 @@ LinCDEBoosting(
   X,
   splitPoint = 20,
   z = "nsTransform",
-  splineDf = 4,
+  splineDf = 10,
   prior = "Gaussian",
-  numberBin = 20,
+  numberBin = 40,
   df = 2,
   penalty = NULL,
   terminalSize = 20,
   depth = 2,
   n.trees = 100,
   shrinkage = 0.1,
+  subsample = 1,
+  augmentation = FALSE,
+  augmentationMethod = "randomForest",
   minY = NULL,
   maxY = NULL
 )
@@ -27,15 +30,15 @@ LinCDEBoosting(
 
 \item{X}{input matrix, of dimension nobs x nvars; each row represents an observation vector.}
 
-\item{splitPoint}{candidate split matrix, of dimension nvars x number of candidate splits per covariate; each row represents a candidate split vector. An alternative input is candidate split numbers, a scalar if all variables share the same number of candidate splits, a vector of length nvars if variables have different numbers of candidate splits (currently not available). If candidate split numbers are given, each variable's range is divided into \code{splitPoint} intervals containing approximately the same number of observations. Default is 20.}
+\item{splitPoint}{a list of candidate splits, of length nvars. Each element is a vector corresponding to a variable's candidate splits (including the left and right end points). The list's elements are ordered the same as \code{X}'s columns. An alternative input is candidate split numbers, a scalar if all variables share the same number of candidate splits, a vector of length nvars if variables have different numbers of candidate splits. If candidate split numbers are given, each variable's range is divided into \code{splitPoint-1} intervals containing approximately the same number of observations. Default is 20. Note that if a variable has fewer unique values than the desired number of intervals, split intervals corresponding to each unique value are created.}
 
 \item{z}{sufficient statistics, i.e., spline basis. For \code{z = "Gaussian"}, y, \eqn{y^2} are used. For \code{z = "bsTransform"}, transformed cubic B-splines are used. For \code{z = "nsTransform"}, transformed natural cubic splines are used. Default is "nsTransform".}
 
-\item{splineDf}{the number of sufficient statistics. If \code{z = "Gaussian"}, \code{splineDf} is set to 2. Default is 4.}
+\item{splineDf}{the number of sufficient statistics. If \code{z = "Gaussian"}, \code{splineDf} is set to 2. Default is 10.}
 
-\item{prior}{the type of the initial carrying density. For \code{prior = "uniform"}, the uniform distribution over the response range is used. For \code{prior = "Gaussian"}, the Gaussian distribution with the marginal response mean and standard deviation is used. All observations share the same initial carrying density. Default is "Gaussian".}
+\item{prior}{the type of the initial carrier density. For \code{prior = "uniform"}, the uniform distribution over the response range is used. For \code{prior = "Gaussian"}, the Gaussian distribution with the marginal response mean and standard deviation is used. For \code{prior = "LindseyMarginal"}, the marginal response density estimated by Lindsey's method based on all responses is used. The argument \code{prior} can also be a homogeneous or heterogeneous conditional density function. The conditional density function should take a covariate matrix X, a response vector y, and output the densities at pairs {(Xi, yi)}. See the LinCDE vignette for examples. Default is "Gaussian".}
 
-\item{numberBin}{the number of bins for response discretization. The response range is divided into \code{numberBin} equal-width bins.}
+\item{numberBin}{the number of bins for response discretization. Default is 40. The response range is divided into \code{numberBin} equal-width bins.}
 
 \item{df}{the ridge Poisson regression's degrees of freedom. \code{df} is used for determining the ridge regularization hyper-parameter. If \code{z = "Gaussian"}, no penalization is implemented. If \code{df = splineDf}, there is no ridge penalization. Default is 2.}
 
@@ -48,6 +51,12 @@ LinCDEBoosting(
 \item{n.trees}{the number of LinCDE trees to fit. Default is 100.}
 
 \item{shrinkage}{the shrinkage parameter applied to each tree in the expansion, value in (0,1]. Default is 0.1.}
+
+\item{subsample}{subsample ratio of the training samples. Default is 1.}
+
+\item{augmentation}{If TRUE, a conditional mean model is fitted first, and LinCDE boosting is applied to the residuals. The augmentation is recommended for responses whose conditional support varies wildly. See the LinCDE vignette for examples. Default is FALSE.}
+
+\item{augmentationMethod}{conditional mean estimator. If \code{augmentationMethod = "linearRegression"}, a regression model is fitted to the response. If \code{augmentationMethod = "randomForest"}, a random forest model is fitted. Default is randomForest. Applies only to \code{augmentation = TRUE}.}
 
 \item{minY}{the user-provided left end of the response range. Default is \code{min(y)}.}
 

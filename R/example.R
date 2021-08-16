@@ -118,7 +118,7 @@ LinCDEExample = function(setting = "GLM", m = 2){
   } else if (setting == "GM"){
     strip = lattice::strip.custom(bg="lightgrey", factor.levels = c(latex2exp::TeX('G_1: (-0.5,-0.5,-0.5)'),latex2exp::TeX('G_2: (0.5,-0.5,-0.5)'),latex2exp::TeX('G_3: (-0.5,0.5,-0.5)'),latex2exp::TeX('G_4: (0.5,0.5,-0.5)'),latex2exp::TeX('G_5: (-0.5,-0.5,0.5)'),latex2exp::TeX('G_6: (0.5,-0.5,0.5)'), latex2exp::TeX('G_7: (-0.5,0.5,0.5)'),latex2exp::TeX('G_8: (0.5,0.5,0.5)'),latex2exp::TeX('G_9: (0,0,0)')), par.strip.text=list(col="black", cex=0.8, font=1))
   }
-  lattice::xyplot(density ~ y | factor(group), group = method, data = latticeCDE[which(latticeCDE$group %in% seq(1,9)),], type = "l", col = c("blue", "red"), lty = c(3,1), lwd = 3, ylab=list("conditional density", cex = 1.5), xlab = list("Y", cex = 1.5), key = key, aspect = 0.75, layout = c(3,3), strip = strip, scales = list(cex = 1))
+  lattice::xyplot(density ~ y | factor(group), group = latticeCDE$method, data = latticeCDE[which(latticeCDE$group %in% seq(1,9)),], type = "l", col = c("blue", "red"), lty = c(3,1), lwd = 3, ylab=list("conditional density", cex = 1.5), xlab = list("Y", cex = 1.5), key = key, aspect = 0.75, layout = c(3,3), strip = strip, scales = list(cex = 1))
 }
 
 

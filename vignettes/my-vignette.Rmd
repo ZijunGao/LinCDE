@@ -86,13 +86,13 @@ nVal = 1000; d = 20
 XVal = matrix(runif(nVal * d, -1, 1), ncol = d)
 yVal = 0.5 * XVal[,1] + XVal[,1] * XVal[,2] + rnorm(nVal,0,1) * (0.5 + 0.25 * XVal[,2])
 
-exampleD1 = LinCDEBoosting(y = y, X = X, depth = 1, n.trees = 100)
-predictExampleD1 = LinCDEPredict(X = XVal, y = yVal, trees = exampleD1)
-plot(predictExampleD1$testLogLikelihoodHistory, pch = 16, main = "depth = 1", xlab = "iteration", ylab = "log-likeihood")
+exampleD1 = LinCDEBoosting(y = y, X = X, depth = 1, n.trees = 10) # 100
+# predictExampleD1 = LinCDEPredict(X = XVal, y = yVal, trees = exampleD1)
+# plot(predictExampleD1$testLogLikelihoodHistory, pch = 16, main = "depth = 1", xlab = "iteration", ylab = "log-likeihood")
 
-exampleD2 = LinCDEBoosting(y = y, X = X, depth = 2, n.trees = 100)
-predictExampleD2 = LinCDEPredict(X = XVal, y = yVal, trees = exampleD2)
-plot(predictExampleD2$testLogLikelihoodHistory, pch = 16, main = "depth = 2", xlab = "iteration", ylab = "log-likeihood")
+# exampleD2 = LinCDEBoosting(y = y, X = X, depth = 2, n.trees = 100)
+# predictExampleD2 = LinCDEPredict(X = XVal, y = yVal, trees = exampleD2)
+# plot(predictExampleD2$testLogLikelihoodHistory, pch = 16, main = "depth = 2", xlab = "iteration", ylab = "log-likeihood")
 ```
 There are a number of secondary hyper-parameters. We recommend starting with the default values and making changes only if certain issues are observed.
 
@@ -210,7 +210,7 @@ We compare the estimated conditional densities against the truth at $9$ landmark
 
 <!-- When a shallow tree is grown, the terminal nodes may consist of heterogeneous samples, and the fitted densities will be a mixture of the Gaussian mixture and Gaussian. -->
 
-```{r,fig.height=5.3, fig.width = 7, fig.align="center"}
+```{r,fig.height=5.3, fig.width = 7, fig.align="center", cache=TRUE}
 # conditional density plot
 XProfile = matrix(runif(3^2 * d,-1,1), nrow = 3^2, ncol = d)
 XProfile[1:(3^2-1),1] = rep(c(-0.5,0.5), 4)
@@ -296,9 +296,9 @@ y = groupIndex * rnorm(n, -0.8, 0.3) + (1-groupIndex) * rnorm(n, 0.8, 0.3)
 y = 4 * X[,1] + (X[,2] <= 0.2) * y + (X[,2] > 0.2) * rnorm(n, 0, 0.8)
 
 # without mean augmentation
-exampleAugmentation = LinCDEBoosting(y = y, X = X, depth = 3, n.trees = 200, shrinkage = 0.02)
+exampleAugmentation = LinCDEBoosting(y = y, X = X, depth = 2, n.trees = 200, shrinkage = 0.02)
 # with mean augmentation
-exampleAugmentationOLS = LinCDEBoosting(y = y, X = X, depth = 3, n.trees = 200, shrinkage = 0.02, augmentation = TRUE, augmentationMethod = "linearRegression")
+exampleAugmentationOLS = LinCDEBoosting(y = y, X = X, depth = 2, n.trees = 200, shrinkage = 0.02, augmentation = TRUE, augmentationMethod = "linearRegression")
 ```
 
 
@@ -323,7 +323,7 @@ exampleAugmentationDensity = function(X, y){
 densityPlot(X = XProfile, trueDensity = exampleAugmentationDensity, trees = exampleAugmentation)
 ```
 
-```{r,fig.height=5.3, fig.width = 7, fig.align="center"}
+```{r,fig.height=5.3, fig.width = 7, fig.align="center", cache=TRUE}
 # with mean augmentation
 yMeanOLS = cbind(1,XProfile) %*% exampleAugmentationOLS$augmentationModel$coefficients
 densityPlot(X = XProfile, trueDensity = exampleAugmentationDensity, trees = exampleAugmentationOLS, yMean = yMeanOLS)

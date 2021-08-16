@@ -1,34 +1,35 @@
-# helper functions for LinCDE
+# helper functions for LinCDE package
 
-# function: count the samples in each bin
-# input:
-  # yIndex: vector of response indices
-  # numberBin: number of bins
-# output:
-  # counts: number of samples in each bin
-
+#' countIndex
+#'
+#' This function counts the samples in each bin.
+#'
+#' @param yIndex vector of indices representing which bins the responoses fall into.
+#' @param numberBin the number of bins for response discretization.
+#'
+#' @return The function returns a vector indicating the number of responses in each bin, of length \code{numberBin}.
+#'
+#' @export
 countIndex = function(yIndex, numberBin) {
   counts = rep(0, numberBin)
   for(i in 1:numberBin) {counts[i] = sum(yIndex == i)}
   return (counts)
 }
 
-
-# function: compute the regularization parameter corresponding to the
-# input:
-  # z: sufficient statistics (numberBin by k matrix)
-  # counts: number of samples in each bin
-  # order: number of sufficient statistics
-  # df: degree of freedom
-  # numberBin: number of bins
-  # nLambda: the number of lambda values
-  # penalty: vector of penalties applied to each coefficient
-# output:
-  # lambda: tuning parameter
-
-# test example:
-  # dfToLambda2(z = z, counts = counts, order = 10, df = 1, numberBin = 40, penalty = c(2,rep(1,order-1)))
-
+#' dfToLambda
+#'
+#' This function computes the regularization parameter corresponding to the given degrees of freedom.
+#'
+#' @param z sufficient statistics matrix, of dimension \code{numberBin} x \code{order}.
+#' @param counts vector indicating the number of responses in each bin, of length \code{numberBin}.
+#' @param order the number of sufficient statistics.
+#' @param df degrees of freedom.
+#' @param numberBin the number of bins for response discretization.
+#' @param penalty separate penalty factors applied to each coefficient, of length \code{order}.
+#'
+#' @return The function returns the regularization parameter.
+#'
+#' @export
 dfToLambda = function(z, counts, order, df, numberBin, penalty = NULL){
   if(order <= df){return (0)}
   if(df == 0){return (1e9)}
@@ -51,14 +52,17 @@ dfToLambda = function(z, counts, order, df, numberBin, penalty = NULL){
   return (lambda/2)
 }
 
-
-# function: compute the importance score from a LinCDE tree
-# input:
-  # tree: a LinCDE tree
-  # d: number of covariates
-# output:
-  # importance: vector of scores measuring the contribution of each covariate to the objective
-
+#' importanceScore
+#'
+#' This function computes the importance score for a LinCDE boosting model.
+#'
+#' @param tree a LinCDE boosting model.
+#' @param d the number of covariates.
+#' @param n.trees the number of trees in the LinCDE boosting model.
+#'
+#' @return The function returns a length \code{d} vector of covariate importances.
+#'
+#' @export
 importanceScore = function(tree, d, n.trees = 1){
   importance = rep(0, d)
   for(l in 1:n.trees){
@@ -69,13 +73,16 @@ importanceScore = function(tree, d, n.trees = 1){
   return (importance)
 }
 
-# 04/23/2021
-# function: compute the list of candidate splits
-# input:
-  # X: variable matrix (nobs by nvar)
-  # numberSplit: vector or scalar of the resulting split intervals' numbers (length nvar or 1)
-# output:
-# splitPoint: a candidate split list (length nvars). Each element is a vector corresponding to a certain variable's candidate splits (length of numberSplit or 1 + the number of unique values).
+#' constructSplitPoint
+#'
+#' This function computes the list of candidate covariate splits.
+#'
+#' @param X input matrix, of dimension nobs x nvars; each row represents an observation vector.
+#' @param numberSplit split numbers for each covariate (length nvars). Each variable's range is divided into \code{numberSplit-1} intervals containing approximately the same number of observations.
+#'
+#' @return The function returns a candidate split list (length nvars). Each element is a vector corresponding to a certain variable's candidate splits (length of \code{numberSplit} or 1 + the number of unique values).
+#'
+#' @export
 constructSplitPoint = function(X, numberSplit){
   # preprocess
   d = dim(X)[2]

@@ -13,5 +13,6 @@ LinkingTo: Rcpp
 Suggests: 
     rmarkdown,
     knitr
-Imports: randomForest
+Imports: randomForest, Rcpp, collections, gbm, glmnet, latex2exp, lattice
+Depends: R (>= 3.5.0)
 VignetteBuilder: knitr

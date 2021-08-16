@@ -7,7 +7,7 @@
 #' @param splitPoint a list of candidate splits, of length nvars. Each element is a vector corresponding to a variable's candidate splits (including the left and right end points). The list's elements are ordered the same as \code{X}'s columns. An alternative input is candidate split numbers, a scalar if all variables share the same number of candidate splits, a vector of length nvars if variables have different numbers of candidate splits. If candidate split numbers are given, each variable's range is divided into \code{splitPoint-1} intervals containing approximately the same number of observations. Default is 20. Note that if a variable has fewer unique values than the desired number of intervals, split intervals corresponding to each unique value are created.
 #' @param numberBin the number of bins for response discretization. Default is 40. The response range is divided into \code{numberBin} equal-width bins.
 #' @param z sufficient statistics, i.e., spline basis. For \code{z = "Gaussian"}, y, \eqn{y^2} are used. For \code{z = "bsTransform"}, transformed cubic B-splines are used. For \code{z = "nsTransform"}, transformed natural cubic splines are used. Default is "nsTransform".
-#' @param prior the type of the initial carrying density. For \code{prior = "uniform"}, the uniform distribution over the response range is used. For \code{prior = "Gaussian"}, the Gaussian distribution with the marginal response mean and standard deviation is used. For \code{prior = "LindseyMarginal"}, the marginal response density estimated by Lindsey's method based on all responses is used. The argument \code{prior} can also be a homogeneous or heterogeneous conditional density function. The conditional density function should take a covariate matrix X, a response vector y, and output the densities at pairs {(Xi, yi)}. See the LinCDE vignette for examples. Default is "Gaussian".
+#' @param prior the type of the initial carrier density. For \code{prior = "uniform"}, the uniform distribution over the response range is used. For \code{prior = "Gaussian"}, the Gaussian distribution with the marginal response mean and standard deviation is used. For \code{prior = "LindseyMarginal"}, the marginal response density estimated by Lindsey's method based on all responses is used. The argument \code{prior} can also be a homogeneous or heterogeneous conditional density function. The conditional density function should take a covariate matrix X, a response vector y, and output the densities at pairs {(Xi, yi)}. See the LinCDE vignette for examples. Default is "Gaussian".
 #' @param splineDf the number of sufficient statistics. If \code{z = "Gaussian"}, \code{splineDf} is set to 2. Default is 10.
 #' @param df the ridge Poisson regression's degrees of freedom. \code{df} is used for determining the ridge regularization hyper-parameter. If \code{z = "Gaussian"}, no penalization is implemented. If \code{df = splineDf}, there is no ridge penalization. Default is 2.
 #' @param penalty vector of penalties applied to each sufficient statistics' coefficient. Default is 1 for each coefficient.
@@ -110,6 +110,14 @@ LinCDEBoosting = function(y, X, splitPoint = 20, z = "nsTransform", splineDf = 1
   } else if(type == "bsTransform" || type == "nsTransform"){lambda = dfToLambda(z = z, counts = counts, order = order, df = df, numberBin = numberBin, penalty = penalty)/n}
 
   # boosting
+  if (depth == 0){
+    # depth = 0 gives the marginal density estimate of Lindsey's method
+    counts = countIndex(yIndex = yIndex, numberBin = numberBin)
+    modelPrior = suppressWarnings(glmnet::glmnet(x = z, y = counts, family = "poisson", lambda = lambda, alpha = 0, penalty.factor = penalty))
+    result = list(); result$trees = as.vector(modelPrior$beta); result$splitMidPointY = splitMidPointY; result$z = z; result$depth = depth; result$prior = prior; result$importanceScore = NULL; result$shrinkage = shrinkage; result$type = type; result$augmentation = augmentation
+    return(result)
+  }
+
   betaName = paste0(rep("beta", order), 1:order)
   trees = list()
   if(class(prior) == "character"){
@@ -222,8 +230,34 @@ LinCDEBoosting = function(y, X, splitPoint = 20, z = "nsTransform", splineDf = 1
   return(result)
 }
 
-
-# This function is a helper for the function LinCDEBoosting. This helper grows one LinCDE tree with heterogeneous carrying density.
+#' LinCDEBoostingHelper
+#'
+#' This function is a helper for the function LinCDEBoosting. This helper grows one LinCDE tree with heterogeneous carrier density.
+#'
+#' @param X input matrix, of dimension nobs x nvars; each row represents an observation vector.
+#' @param yIndex discretized response vector, of length nobs.
+#' @param z sufficient statistics matrix, of dimension \code{numberBin} x \code{order}. Default is NULL.
+#' @param currDepth the current depth of the LinCDE tree.
+#' @param tree the current LinCDE tree.
+#' @param indexList the list of candidate splits.
+#' @param currNodeIndex the index of the current node.
+#' @param cellProb cell probability matrix, of dimension nobs x \code{numberBin}.
+#' @param improvementQueue the queue recording improvements of candidate splits.
+#' @param splitPoint a list of candidate splits, of length nvars.
+#' @param numberBin the number of bins for response discretization. Default is 20.
+#' @param order the number of sufficient statistics. Default is 4.
+#' @param lambda the regularization parameter for Poisson regression. Default is 0.
+#' @param penalty separate penalty factors applied to each coefficient, of length \code{order}. Default is NULL.
+#' @param df degrees of freedom. Default is 2.
+#' @param alpha parameter for the stopping rule of splitting. Default is 0.2.
+#' @param terminalSize the minimum number of observations in a terminal node. Default is 20.
+#' @param depth the number of splits of each LinCDE tree. The number of terminal nodes is \code{depth + 1}. For \code{depth = 1}, an additive model is fitted. Default is 2.
+#' @param shrinkage the shrinkage parameter applied to each tree in the expansion, value in (0,1]. Default is 0.1.
+#'
+#' @return trees and cellProb.
+#' @return This function returns a LinCDE tree \code{trees} and the updated cell probability matrix \code{cellProb}.
+#'
+#' @export
 LinCDEBoostingHelper = function(X, yIndex, z = NULL, currDepth, tree, indexList, currNodeIndex, cellProb, improvementQueue, splitPoint, numberBin = 20, order = 4, lambda = 0, penalty = NULL, df = 2, alpha = 0.2, terminalSize = 20, depth = 2, shrinkage = 0.1){
   # initial split
   if(currDepth == 0){
@@ -278,7 +312,7 @@ LinCDEBoostingHelper = function(X, yIndex, z = NULL, currDepth, tree, indexList,
   covMatrix = covMatrix + diag(lambda * numberBin * penalty)
   covMatrixInv = solve(covMatrix)
   # find the best split
-  currSplit = LinCDESplit(X[indexLeft, ], yIndex[indexLeft]-1, cellProb[indexLeft, ], z, covMatrixInv, splitPoint, numberBin)
+  currSplit = LinCDESplit(as.matrix(X[indexLeft, ]), yIndex[indexLeft]-1, cellProb[indexLeft, ], z, covMatrixInv, splitPoint, numberBin)
   # insignificant
   if(currSplit[3] <= qchisq(p = (1-alpha), df = df)/2){
     indexList[[currNode[3]]] = indexLeft
@@ -312,7 +346,7 @@ LinCDEBoostingHelper = function(X, yIndex, z = NULL, currDepth, tree, indexList,
   covMatrix = covMatrix + diag(lambda * numberBin * penalty)
   covMatrixInv = solve(covMatrix)
   # find the best split
-  currSplit = LinCDESplit(X[indexRight, ], yIndex[indexRight]-1, cellProb[indexRight, ], z, covMatrixInv, splitPoint, numberBin)
+  currSplit = LinCDESplit(as.matrix(X[indexRight, ]), yIndex[indexRight]-1, cellProb[indexRight, ], z, covMatrixInv, splitPoint, numberBin)
   # insignificant
   if(currSplit[3] <= qchisq(p = (1-alpha), df = df)/2){
     indexList[[currNode[4]]] = indexRight

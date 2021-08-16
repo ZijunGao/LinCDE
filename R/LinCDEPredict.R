@@ -4,7 +4,8 @@
 #'
 #' @param X input matrix for prediction, of dimension nobs x nvars; each row represents an observation vector.
 #' @param y response vector for prediction, of length nobs.
-#' @param trees: a LinCDE boosting model.
+#' @param trees a LinCDE boosting model.
+#' @param splitPointYTest vector of response break points. Default is NULL.
 #'
 #' @return The function returns a list of values.
 #' \itemize{
@@ -23,10 +24,10 @@ LinCDEPredict = function(X, y = NULL, trees, splitPointYTest = NULL){
   if(!is.null(y)){full = TRUE} else {full = FALSE; y = rnorm(n)}
   z = trees$z; k = dim(z)[2]; depth = trees$depth; type = trees$type
   augmentation = trees$augmentation; augmentationMethod = trees$augmentationMethod
-  # ???
+
   if(augmentation){
     if(augmentationMethod == "linearRegression"){
-      yMean = predict(trees$augmentationModel, newdata = X);
+      yMean = cbind(1, X) %*% trees$augmentationModel$coefficients # order!!!
     } else if(augmentationMethod == "randomForest"){
       yMean = predict(trees$augmentationModel, newdata = X);
     }
@@ -181,18 +182,17 @@ LinCDEPredict = function(X, y = NULL, trees, splitPointYTest = NULL){
   return(result)
 }
 
-
-# prediction of a LinCDE tree
-# a subroutine in LinCDEBoosting
-# input:
-#   X: covariate matrix
-#   tree: a LinCDE tree
-# output:
-#   membership: length n vector: each element represents the row (terminal node) that a sample falls into
-
-# debug
-# test = LinCDETreePredict(X = X, tree = LinCDEBoosting$trees[[2]], currentRow = 1)
-# test2 = LinCDETreePredict(X = X[c(1,2),], tree = LinCDEBoosting$trees[[2]], currentRow = 1)
+#' LinCDETreePredict
+#'
+#' This function conducts prediction of a LinCDE tree.
+#'
+#' @param X input matrix for prediction, of dimension nobs x nvars; each row represents an observation vector.
+#' @param tree a LinCDE tree.
+#' @param currentRow the row index of the current node.
+#'
+#' @return The function returns the \code{membership} vector (length nobs): each element represents the row (terminal node) that a sample falls into.
+#'
+#' @export
 LinCDETreePredict = function(X, tree, currentRow = 1){
   if(is.null(dim(X))){X = matrix(X, nrow = 1)}
   if(tree$SplitVar[currentRow] == 0){
