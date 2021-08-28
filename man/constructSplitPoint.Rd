@@ -12,7 +12,7 @@ constructSplitPoint(X, numberSplit)
 \item{numberSplit}{split numbers for each covariate (length nvars). Each variable's range is divided into \code{numberSplit-1} intervals containing approximately the same number of observations.}
 }
 \value{
-The function returns a candidate split list (length nvars). Each element is a vector corresponding to a certain variable's candidate splits (length of \code{numberSplit} or 1 + the number of unique values).
+The function returns a candidate split list (length nvars). Each element is a vector corresponding to a certain variable's candidate splits (length of \code{numberSplit - 1} or 1 + the number of unique values).
 }
 \description{
 This function computes the list of candidate covariate splits.

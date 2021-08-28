@@ -4,14 +4,14 @@
 \alias{importanceScore}
 \title{importanceScore}
 \usage{
-importanceScore(tree, d, n.trees = 1)
+importanceScore(model, d, n.trees = 1, var.names = NULL)
 }
 \arguments{
-\item{tree}{a LinCDE boosting model.}
-
 \item{d}{the number of covariates.}
 
 \item{n.trees}{the number of trees in the LinCDE boosting model.}
+
+\item{tree}{a LinCDE boosting model.}
 }
 \value{
 The function returns a length \code{d} vector of covariate importances.

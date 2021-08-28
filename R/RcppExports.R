@@ -12,7 +12,7 @@
 #' @return This function return a vector of cdf. (length nobs).
 #'
 LinCDECdf <- function(cellProb, y, splitPointY) {
-    .Call(`_LinCDE_LinCDECdf`, cellProb, y, splitPointY)
+    .Call('_LinCDE_LinCDECdf', PACKAGE = 'LinCDE', cellProb, y, splitPointY)
 }
 
 #' LinCDEQuantiles
@@ -26,7 +26,7 @@ LinCDECdf <- function(cellProb, y, splitPointY) {
 #' @return This function return a matrix of quantiles (dimension nobs x  number of quantile levels).
 #'
 LinCDEQuantiles <- function(cellProb, probs, splitPointY) {
-    .Call(`_LinCDE_LinCDEQuantiles`, cellProb, probs, splitPointY)
+    .Call('_LinCDE_LinCDEQuantiles', PACKAGE = 'LinCDE', cellProb, probs, splitPointY)
 }
 
 #' LinCDESplit
@@ -44,6 +44,6 @@ LinCDEQuantiles <- function(cellProb, probs, splitPointY) {
 #' @return The function returns \code{splitVar}: the index of the variable to split at; \code{splitVal}: the cut-point of the split; \code{improvement}: the contribution of the split to the objective.
 #'
 LinCDESplit <- function(X, yIndex, cellProb, z, covMatrixInv, splitPoint, numberBin) {
-    .Call(`_LinCDE_LinCDESplit`, X, yIndex, cellProb, z, covMatrixInv, splitPoint, numberBin)
+    .Call('_LinCDE_LinCDESplit', PACKAGE = 'LinCDE', X, yIndex, cellProb, z, covMatrixInv, splitPoint, numberBin)
 }
 

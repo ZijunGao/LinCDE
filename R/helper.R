@@ -12,7 +12,8 @@
 #' @export
 countIndex = function(yIndex, numberBin) {
   counts = rep(0, numberBin)
-  for(i in 1:numberBin) {counts[i] = sum(yIndex == i)}
+  temp = table(yIndex)
+  counts[as.numeric(names(temp))] = temp
   return (counts)
 }
 
@@ -20,18 +21,18 @@ countIndex = function(yIndex, numberBin) {
 #'
 #' This function computes the regularization parameter corresponding to the given degrees of freedom.
 #'
-#' @param z sufficient statistics matrix, of dimension \code{numberBin} x \code{order}.
+#' @param z sufficient statistics matrix, of dimension \code{numberBin} x \code{splineDf}.
 #' @param counts vector indicating the number of responses in each bin, of length \code{numberBin}.
-#' @param order the number of sufficient statistics.
+#' @param splineDf the number of sufficient statistics.
 #' @param df degrees of freedom.
 #' @param numberBin the number of bins for response discretization.
-#' @param penalty separate penalty factors applied to each coefficient, of length \code{order}.
+#' @param penalty separate penalty factors applied to each coefficient, of length \code{splineDf}.
 #'
 #' @return The function returns the regularization parameter.
 #'
 #' @export
-dfToLambda = function(z, counts, order, df, numberBin, penalty = NULL){
-  if(order <= df){return (0)}
+dfToLambda = function(z, counts, splineDf, df, numberBin, penalty = NULL){
+  if(splineDf <= df){return (0)}
   if(df == 0){return (1e9)}
 
   # estimate the weight
@@ -63,10 +64,11 @@ dfToLambda = function(z, counts, order, df, numberBin, penalty = NULL){
 #' @return The function returns a length \code{d} vector of covariate importances.
 #'
 #' @export
-importanceScore = function(tree, d, n.trees = 1){
-  importance = rep(0, d)
+importanceScore = function(model, d, n.trees = 1, var.names = NULL){
+  if(is.null(var.names)){var.names = paste("X", seq(1,d), sep = "")}
+  importance = rep(0, d); names(importance) = var.names
   for(l in 1:n.trees){
-    currTree = tree[[l]]
+    currTree = model[[l]]
     index = sort(unique(currTree$SplitVar))
     importance[index[-1]] = importance[index[-1]] + aggregate(x = currTree$ErrorReduction, by = list(currTree$SplitVar), FUN = sum)$x[-1]
   }
@@ -80,7 +82,7 @@ importanceScore = function(tree, d, n.trees = 1){
 #' @param X input matrix, of dimension nobs x nvars; each row represents an observation vector.
 #' @param numberSplit split numbers for each covariate (length nvars). Each variable's range is divided into \code{numberSplit-1} intervals containing approximately the same number of observations.
 #'
-#' @return The function returns a candidate split list (length nvars). Each element is a vector corresponding to a certain variable's candidate splits (length of \code{numberSplit} or 1 + the number of unique values).
+#' @return The function returns a candidate split list (length nvars). Each element is a vector corresponding to a certain variable's candidate splits (length of \code{numberSplit - 1} or 1 + the number of unique values).
 #'
 #' @export
 constructSplitPoint = function(X, numberSplit){

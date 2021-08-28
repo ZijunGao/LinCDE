@@ -4,20 +4,20 @@
 \alias{dfToLambda}
 \title{dfToLambda}
 \usage{
-dfToLambda(z, counts, order, df, numberBin, penalty = NULL)
+dfToLambda(z, counts, splineDf, df, numberBin, penalty = NULL)
 }
 \arguments{
-\item{z}{sufficient statistics matrix, of dimension \code{numberBin} x \code{order}.}
+\item{z}{sufficient statistics matrix, of dimension \code{numberBin} x \code{splineDf}.}
 
 \item{counts}{vector indicating the number of responses in each bin, of length \code{numberBin}.}
 
-\item{order}{the number of sufficient statistics.}
+\item{splineDf}{the number of sufficient statistics.}
 
 \item{df}{degrees of freedom.}
 
 \item{numberBin}{the number of bins for response discretization.}
 
-\item{penalty}{separate penalty factors applied to each coefficient, of length \code{order}.}
+\item{penalty}{separate penalty factors applied to each coefficient, of length \code{splineDf}.}
 }
 \value{
 The function returns the regularization parameter.
