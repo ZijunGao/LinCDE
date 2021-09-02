@@ -8,10 +8,11 @@
 #' @param yGrid the response grid to evaluate conditional densities at. Default is NULL.
 #' @param model a conditional density model with a \code{predict} method, e.g., a LinCDE boosting model. The call \code{predict(model, X, y)} should return a vector of estimated conditional densities f(yi | Xi). To only plot the true conditional densities, leave the \code{model} blank. Default is NULL.
 #' @param trueDensity true conditional density function. The call \code{trueDensity(X, y)} should return a vector of true conditional densities f(yi | Xi). To only plot LinCDE's estimated conditional densities, leave the \code{trueDensity} blank. Default is NULL.
+#' @param plot TODO!!!
 #'
 #' @return The function outputs a lattice plot of conditional densities.
 #' @export
-densityPlot = function(X, minY = NULL, maxY = NULL, nGrid = 100, yGrid = NULL,  model = NULL, trueDensity = NULL){
+densityPlot = function(X, minY = NULL, maxY = NULL, nGrid = 100, yGrid = NULL,  model = NULL, trueDensity = NULL, plot = TRUE){
   # preprocess
   if(is.null(dim(X))){X = matrix(X, nrow = 1)}
   n = dim(X)[1]; d = dim(X)[2]
@@ -40,7 +41,7 @@ densityPlot = function(X, minY = NULL, maxY = NULL, nGrid = 100, yGrid = NULL,  
              lines=list(col=c("blue", "red"), lty=c(3,1), lwd=3),
              text=list(c("truth", "estimated")), cex = 1)
     strip = lattice::strip.custom(bg="lightgrey", factor.levels = paste("R", seq(1,n)), par.strip.text=list(col="black", cex=0.8, font=1))
-    plot = lattice::xyplot(density ~ y | factor(group), group = latticeCDE$method, data = latticeCDE, type = "l", col = c("blue", "red"), lty = c(3,1), lwd = 3, ylab=list("conditional density", cex = 1), xlab = list("y", cex = 1), key = key, aspect = 0.75, layout = c(floor(sqrt(n)),ceiling(n/floor(sqrt(n)))), strip = strip, scales = list(cex = 1), main = "Estimated and true conditional densities")
+    densityPlot = lattice::xyplot(density ~ y | factor(group), group = latticeCDE$method, data = latticeCDE, type = "l", col = c("blue", "red"), lty = c(3,1), lwd = 3, ylab=list("conditional density", cex = 1), xlab = list("y", cex = 1), key = key, aspect = 0.75, layout = c(floor(sqrt(n)),ceiling(n/floor(sqrt(n)))), strip = strip, scales = list(cex = 1), main = "Estimated and true conditional densities")
   }
 
   # lattice plot of the true densities
@@ -51,7 +52,7 @@ densityPlot = function(X, minY = NULL, maxY = NULL, nGrid = 100, yGrid = NULL,  
     latticeCDE$density = trueDens
     latticeCDE$group = rep(seq(1,n), rep(nGrid,n))
     strip = lattice::strip.custom(bg="lightgrey", factor.levels = paste("R", seq(1,n)), par.strip.text=list(col="black", cex=0.8, font=1))
-    plot = lattice::xyplot(density ~ y | factor(group), data = latticeCDE, type = "l", col = c("blue"), lty = 3, lwd = 3, ylab=list("conditional density", cex = 1), xlab = list("y", cex = 1), aspect = 0.75, layout = c(floor(sqrt(n)),ceiling(n/floor(sqrt(n)))), strip = strip, scales = list(cex = 1), main = "True conditional densities")
+    densityPlot = lattice::xyplot(density ~ y | factor(group), data = latticeCDE, type = "l", col = c("blue"), lty = 3, lwd = 3, ylab=list("conditional density", cex = 1), xlab = list("y", cex = 1), aspect = 0.75, layout = c(floor(sqrt(n)),ceiling(n/floor(sqrt(n)))), strip = strip, scales = list(cex = 1), main = "True conditional densities")
   }
 
   # lattice plot of the estimated densities
@@ -64,7 +65,7 @@ densityPlot = function(X, minY = NULL, maxY = NULL, nGrid = 100, yGrid = NULL,  
     latticeCDE$density = c(estDens)
     latticeCDE$group = rep(seq(1,n), rep(nGrid,n))
     strip = lattice::strip.custom(bg="lightgrey", factor.levels = paste("R", seq(1,n)), par.strip.text=list(col="black", cex=0.8, font=1))
-    plot = lattice::xyplot(density ~ y | factor(group), data = latticeCDE, type = "l", col = c("red"), lty = 1, lwd = 3, ylab=list("conditional density", cex = 1), xlab = list("y", cex = 1), aspect = 0.75, layout = c(floor(sqrt(n)),ceiling(n/floor(sqrt(n)))), strip = strip, scales = list(cex = 1), main = "Estimated conditional densities")
+    densityPlot = lattice::xyplot(density ~ y | factor(group), data = latticeCDE, type = "l", col = c("red"), lty = 1, lwd = 3, ylab=list("conditional density", cex = 1), xlab = list("y", cex = 1), aspect = 0.75, layout = c(floor(sqrt(n)),ceiling(n/floor(sqrt(n)))), strip = strip, scales = list(cex = 1), main = "Estimated conditional densities")
   }
-  print(plot)
+  if(plot){print(densityPlot)} else {return(latticeCDE)}
 }

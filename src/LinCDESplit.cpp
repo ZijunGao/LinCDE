@@ -1,13 +1,38 @@
 #include <Rcpp.h>
+// #include "paired_types.h"
 using namespace Rcpp;
 
 IntegerVector orderIndex(NumericVector arr) {
-  // if (is_true(any(duplicated(x)))) {
+  // if (is_true(any(duplicated(arr)))) {
   //   Rf_warning("There are duplicates in 'x'; order not guaranteed to match that of R's base::order");
   // }
   NumericVector sorted = clone(arr).sort();
   return match(sorted, arr);
 }
+
+// typedef std::pair<int, double> paired;
+
+// bool cmp_second(const paired & left, const paired & right) {
+//   return left.second < right.second;
+// }
+//
+// Rcpp::IntegerVector order(const NumericVector & x) {
+//
+//   const size_t n = x.size();
+//   std::vector<paired> pairs;
+//   pairs.reserve(n);
+//
+//   for(size_t i = 0; i < n; i++)
+//     pairs.push_back(std::make_pair(i, x(i)));
+//
+//   std::sort(pairs.begin(), pairs.end(), cmp_second<paired>);
+//
+//   Rcpp::IntegerVector result = Rcpp::no_init(n);
+//   for(size_t i = 0; i < n; i++)
+//     result(i) = pairs[i].first;
+//   return result;
+// }
+
 
 //' LinCDESplit
 //'
@@ -22,7 +47,7 @@ IntegerVector orderIndex(NumericVector arr) {
 //' @param numberBin the number of bins for response discretization.
 //'
 //' @return The function returns \code{splitVar}: the index of the variable to split at; \code{splitVal}: the cut-point of the split; \code{improvement}: the contribution of the split to the objective.
-//'
+//' @export
 //[[Rcpp::export]]
 NumericVector LinCDESplit(const NumericMatrix& X, const IntegerVector& yIndex,
                           const NumericMatrix& cellProb, const NumericMatrix& z,
@@ -135,12 +160,14 @@ NumericVector LinCDESplit(const NumericMatrix& X, const IntegerVector& yIndex,
       if (currImprovement[i] > maxImprovement){
         splitVar = m; splitVal = currSplitPoint[i]; maxImprovement = currImprovement[i];
       }
+      // Rprintf("variable %i cell Prob [%i] %f  \n", m, i, zL[0]);
     }
     improvement[m] = currImprovement;
   }
-  NumericVector result(3);
+  NumericVector result(5);
   result[0] = splitVar + 1; result[1] = splitVal; result[2] = maxImprovement * n / 2;
   return result;
+  // return improvement[7];
 }
 
 

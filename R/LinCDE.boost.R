@@ -36,7 +36,7 @@
 #' }
 #'
 #' @export
-LinCDE.boost = function(y, X, splitPoint = 20, basis = "nsTransform", splineDf = 10, minY = NULL, maxY = NULL, numberBin = 40, df = 4, penalty = NULL, prior = "Gaussian", depth = 1, n.trees = 100, shrinkage = 0.1, terminalSize = 20, alpha = 0.2, subsample = 1, centering = FALSE, centeringMethod = "randomForest",verbose = TRUE){
+LinCDE.boost = function(y, X, splitPoint = 20, basis = "nsTransform", splineDf = 10, minY = NULL, maxY = NULL, numberBin = 40, df = 4, penalty = NULL, prior = "Gaussian", depth = 1, n.trees = 100, shrinkage = 0.1, terminalSize = 20, alpha = 0.2, subsample = 1, centering = FALSE, centeringMethod = "randomForest",verbose = TRUE, newKnots = FALSE){ # !!! to be deleted: newXXX
   # pre-process and initialization
   result = list(); result$depth = depth; result$shrinkage = shrinkage; result$basis = basis; result$centering = centering; result$centeringMethod = centeringMethod; result$y = y; result$X = X
   n = length(y)
@@ -48,6 +48,10 @@ LinCDE.boost = function(y, X, splitPoint = 20, basis = "nsTransform", splineDf =
   if(is.null(df)){df = splineDf}
   if(is.null(penalty)){penalty = rep(1,splineDf)}
   if(class(splitPoint) != "list"){splitPoint = constructSplitPoint(X, splitPoint)}
+
+  separate = function(x){min(abs(diff(unique(sort(x)))))} # make unique (X intervals: (]) # !!!
+  resolution = min(apply(X, 2, separate)) # !!!
+  X = X + runif(length(X),-resolution/10,0) # !!!
 
   # centering and response discretization
   if(centering){
@@ -74,11 +78,19 @@ LinCDE.boost = function(y, X, splitPoint = 20, basis = "nsTransform", splineDf =
     z = cbind(splitMidPointY, splitMidPointY^2); result$z=z
     penalty = c(1,1); splineDf = 2
   } else if (basis == "nsTransform"){
-    knotsNs = quantile(splitMidPointY, probs = (1:(splineDf+1))/(splineDf+2))
-    zOrg = splines::ns(x=splitMidPointY, knots = knotsNs[-c(1,splineDf+1)], intercept = FALSE, Boundary.knots = knotsNs[c(1,splineDf+1)])
+    if(newKnots){
+      knotsNs = quantile(y, probs = seq(1, splineDf-1)/splineDf)
+      boundaryKnotsNs = range(y)
+    } else{
+      knotsNs = quantile(splitMidPointY, probs = (1:(splineDf+1))/(splineDf+2))
+      boundaryKnotsNs = knotsNs[c(1,splineDf+1)]
+      knotsNs = knotsNs[-c(1,splineDf+1)]
+    }
+    zOrg = splines::ns(x=splitMidPointY, knots = knotsNs, intercept = FALSE, Boundary.knots = boundaryKnotsNs)
     # transformation
     xSeq = min(splitMidPointY) + (seq(1,1000)-0.5)/1000 * (max(splitMidPointY) - min(splitMidPointY)); hTemp = xSeq[2] - xSeq[1]
-    zTemp = splines::ns(x=xSeq, knots = knotsNs[-c(1,splineDf+1)], intercept = FALSE, Boundary.knots = knotsNs[c(1,splineDf+1)])
+    # zTemp = splines::ns(x=xSeq, knots = knotsNs[-c(1,splineDf+1)], intercept = FALSE, Boundary.knots = knotsNs[c(1,splineDf+1)]) # !!!
+    zTemp = splines::ns(x=xSeq, knots = attributes(zOrg)$knots, intercept = attributes(zOrg)$intercept, Boundary.knots = attributes(zOrg)$Boundary.knots) # !!!
     derivative = apply(zTemp, 2, diff, diff = 3)/hTemp^3
     OmegaN = t(derivative) %*% derivative * hTemp; OmegaN = OmegaN/max(OmegaN)
     svdOmegaN = svd(OmegaN)
@@ -91,7 +103,9 @@ LinCDE.boost = function(y, X, splitPoint = 20, basis = "nsTransform", splineDf =
   # compute ridge regularization parameters
   counts = countIndex(yIndex = yIndex, numberBin = numberBin)
   if(basis == "Gaussian"){lambda = 0
-  }else if(basis == "nsTransform"){lambda = dfToLambda(z = z, counts = counts, splineDf = splineDf, df = df, numberBin = numberBin, penalty = penalty)/n}
+  }else if(basis == "nsTransform"){
+    lambda = dfToLambda(z = z, counts = counts, splineDf = splineDf, df = df, numberBin = numberBin, penalty = penalty)/n
+    }
 
   # prior
   if(class(prior) == "character"){
@@ -108,7 +122,8 @@ LinCDE.boost = function(y, X, splitPoint = 20, basis = "nsTransform", splineDf =
         result = dnorm(yTest, mean = mean(y), sd = sd(y)); return(result)
       }
     } else if (prior == "LindseyMarginal"){
-      modelPrior = suppressWarnings(glmnet::glmnet(x = z, y = counts, family = "poisson", lambda = 0, alpha = 0, standardize = FALSE, intercept = TRUE))
+      modelPrior = suppressWarnings(glmnet::glmnet(x = z, y = counts, family = "poisson", lambda = 0, alpha = 0, standardize = FALSE, intercept = TRUE)) # !!!
+      # modelPrior = suppressWarnings(glmnet::glmnet(x = z, y = counts, family = poisson(), lambda = 0, alpha = 0, standardize = FALSE, intercept = TRUE)) # !!!
       cellProb = matrix(exp(z %*% as.vector(modelPrior$beta)), nrow=1)
       cellProb = cellProb/sum(cellProb); cellProb = cellProb[rep(1, n),]
       priorFunction = function(XTest, yTest){
@@ -125,7 +140,8 @@ LinCDE.boost = function(y, X, splitPoint = 20, basis = "nsTransform", splineDf =
   # boosting
   # depth = 0 gives the marginal density estimate of Lindsey's method with no prior
   if (depth == 0){
-    modelPrior = glmnet::glmnet(x = z, y = counts, family = "poisson", nlambda = 100, alpha = 0, penalty.factor = penalty, intercept = TRUE, standardize = FALSE)
+    modelBeforeSplit = glmnet::glmnet(x = z, y = counts, family = "poisson", nlambda = 100, alpha = 0, penalty.factor = penalty, intercept = TRUE, standardize = FALSE) #!!!
+    # modelBeforeSplit = glmnet::glmnet(x = z, y = counts, family = poisson(), lambda = lambda*n, alpha = 0, penalty.factor = penalty, intercept = TRUE, standardize = FALSE) #!!!
     lambdaIndex = which.min(abs(modelBeforeSplit$lambda - n * lambda))
     result$trees = as.vector(modelPrior$beta[, lambdaIndex]); result$prior = NULL; result$importanceScore = NULL
     class(result) = "LinCDE"; return(result)
@@ -211,7 +227,8 @@ LinCDE.boost.helper = function(X, yIndex, z = NULL, currDepth, tree, indexList, 
     # estimate psi''
     counts = countIndex(yIndex = yIndex, numberBin = numberBin)
     offset = log(apply(cellProb, 2, mean))
-    modelBeforeSplit = glmnet::glmnet(x = z, y = counts, family = "poisson", offset = offset, nlambda = 100, alpha = 0, penalty.factor = penalty, intercept = TRUE, standardize = FALSE)
+    modelBeforeSplit = glmnet::glmnet(x = z, y = counts, family = "poisson", offset = offset, nlambda = 100, alpha = 0, penalty.factor = penalty, intercept = TRUE, standardize = FALSE) #!!!
+    # modelBeforeSplit = glmnet::glmnet(x = z, y = counts, family = poisson(), offset = offset, lambda = lambda * n, alpha = 0, penalty.factor = penalty, intercept = TRUE, standardize = FALSE) #!!!
     lambdaIndex = which.min(abs(modelBeforeSplit$lambda - n * lambda))
     prob = as.vector(exp(z %*% as.vector(modelBeforeSplit$beta[, lambdaIndex]))) * exp(offset); prob = prob/sum(prob)
     temp = t(z) %*% prob
@@ -241,7 +258,8 @@ LinCDE.boost.helper = function(X, yIndex, z = NULL, currDepth, tree, indexList, 
   # estimate psi''
   counts = countIndex(yIndex = yIndex[indexLeft], numberBin = numberBin)
   offset = log(apply(cellProb[indexLeft, ], 2, mean))
-  modelBeforeSplit = glmnet::glmnet(x = z, y = counts, offset = offset, family = "poisson", nlambda = 100, alpha = 0, penalty.factor = penalty, intercept = TRUE, standardize = FALSE)
+  modelBeforeSplit = glmnet::glmnet(x = z, y = counts, offset = offset, family = "poisson", nlambda = 100, alpha = 0, penalty.factor = penalty, intercept = TRUE, standardize = FALSE) #!!!
+  # modelBeforeSplit = glmnet::glmnet(x = z, y = counts, offset = offset, family = poisson(), lambda = nLeft * lambda, alpha = 0, penalty.factor = penalty, intercept = TRUE, standardize = FALSE) #!!!
   lambdaIndex = which.min(abs(modelBeforeSplit$lambda - nLeft * lambda)) #!!!
   prob = as.vector(exp(z %*% as.vector(modelBeforeSplit$beta[, lambdaIndex]))) * exp(offset); prob = prob/sum(prob)
   temp = t(z) %*% prob
@@ -267,7 +285,8 @@ LinCDE.boost.helper = function(X, yIndex, z = NULL, currDepth, tree, indexList, 
   # estimate psi''
   counts = countIndex(yIndex = yIndex[indexRight], numberBin = numberBin)
   offset = log(apply(cellProb[indexRight, ], 2, mean))
-  modelBeforeSplit = glmnet::glmnet(x = z, y = counts, offset = offset, family = "poisson", nlambda = 100, alpha = 0, penalty.factor = penalty, intercept = TRUE, standardize = FALSE)
+  modelBeforeSplit = glmnet::glmnet(x = z, y = counts, offset = offset, family = "poisson", nlambda = 100, alpha = 0, penalty.factor = penalty, intercept = TRUE, standardize = FALSE) #!!!
+  # modelBeforeSplit = glmnet::glmnet(x = z, y = counts, offset = offset, family = poisson(), lambda = lambda * nRight, alpha = 0, penalty.factor = penalty, intercept = TRUE, standardize = FALSE) #!!!
   lambdaIndex = which.min(abs(modelBeforeSplit$lambda - nRight * lambda))
   prob = as.vector(exp(z %*% as.vector(modelBeforeSplit$beta[, lambdaIndex]))) * exp(offset); prob = prob/sum(prob)
   temp = t(z) %*% prob

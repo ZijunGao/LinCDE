@@ -10,7 +10,7 @@ using namespace Rcpp;
 //' @param splitPointY split points of responses (length number of bins + 1).
 //'
 //' @return This function return a matrix of quantiles (dimension nobs x  number of quantile levels).
-//'
+//' @export
 //[[Rcpp::export]]
 NumericMatrix LinCDEQuantiles(const NumericMatrix& cellProb,
                               const NumericVector& probs,

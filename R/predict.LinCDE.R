@@ -139,3 +139,41 @@ predict.LinCDE = function(object, X, y = NULL, splitPointYTest = NULL, densityOn
   return(result)
 }
 
+#' LinCDETreePredict
+#'
+#' This function conducts prediction of a LinCDE tree.
+#'
+#' @param X covariate matrix.
+#' @param tree a LinCDE tree.
+#' @param currentRow TODO
+#'
+#' @return The function returns a list of values.
+#' \itemize{
+#' \item membership: length n vector: each element represents the row (terminal node) that a sample falls into.
+#' }
+#'
+#' @export
+LinCDETreePredict = function(X, tree, currentRow = 1){
+  if(is.null(dim(X))){X = matrix(X, nrow = 1)}
+  if(tree$SplitVar[currentRow] == 0){
+    membership = rep(currentRow, dim(X)[1]); return(membership)
+  }
+  indexLeft = which(X[,tree$SplitVar[currentRow]] <= tree$SplitCodePred[currentRow])
+  if(length(indexLeft) > 0){
+    membershipLeft = LinCDETreePredict(X = X[indexLeft, ], tree = tree, currentRow = tree$LeftNode[currentRow])
+  } else {
+    membership = LinCDETreePredict(X = X, tree = tree, currentRow = tree$RightNode[currentRow])
+    return(membership)
+  }
+  if(length(indexLeft) < dim(X)[1]){
+    membershipRight = LinCDETreePredict(X = X[-indexLeft, ], tree = tree, currentRow = tree$RightNode[currentRow])
+    membership = rep(0, dim(X)[1])
+    membership[indexLeft] = membershipLeft
+    membership[-indexLeft] = membershipRight
+    return(membership)
+  } else {
+    return(membershipLeft)
+  }
+}
+
+

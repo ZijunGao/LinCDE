@@ -24,7 +24,8 @@ LinCDE.boost(
   subsample = 1,
   centering = FALSE,
   centeringMethod = "randomForest",
-  verbose = TRUE
+  verbose = TRUE,
+  newKnots = FALSE
 )
 }
 \arguments{

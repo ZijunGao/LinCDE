@@ -10,7 +10,7 @@ using namespace Rcpp;
 //' @param splitPointY split points of responses (length number of bins + 1).
 //'
 //' @return This function return a vector of cdf. (length nobs).
-//'
+//' @export
 //[[Rcpp::export]]
 NumericVector LinCDECdf(const NumericMatrix& cellProb,
                               const NumericVector& y,

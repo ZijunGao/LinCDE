@@ -10,9 +10,9 @@
 #' @param splitPointY split points of responses (length number of bins + 1).
 #'
 #' @return This function return a vector of cdf. (length nobs).
-#'
+#' @export
 LinCDECdf <- function(cellProb, y, splitPointY) {
-    .Call('_LinCDE_LinCDECdf', PACKAGE = 'LinCDE', cellProb, y, splitPointY)
+    .Call(`_LinCDE_LinCDECdf`, cellProb, y, splitPointY)
 }
 
 #' LinCDEQuantiles
@@ -24,9 +24,9 @@ LinCDECdf <- function(cellProb, y, splitPointY) {
 #' @param splitPointY split points of responses (length number of bins + 1).
 #'
 #' @return This function return a matrix of quantiles (dimension nobs x  number of quantile levels).
-#'
+#' @export
 LinCDEQuantiles <- function(cellProb, probs, splitPointY) {
-    .Call('_LinCDE_LinCDEQuantiles', PACKAGE = 'LinCDE', cellProb, probs, splitPointY)
+    .Call(`_LinCDE_LinCDEQuantiles`, cellProb, probs, splitPointY)
 }
 
 #' LinCDESplit
@@ -42,8 +42,8 @@ LinCDEQuantiles <- function(cellProb, probs, splitPointY) {
 #' @param numberBin the number of bins for response discretization.
 #'
 #' @return The function returns \code{splitVar}: the index of the variable to split at; \code{splitVal}: the cut-point of the split; \code{improvement}: the contribution of the split to the objective.
-#'
+#' @export
 LinCDESplit <- function(X, yIndex, cellProb, z, covMatrixInv, splitPoint, numberBin) {
-    .Call('_LinCDE_LinCDESplit', PACKAGE = 'LinCDE', X, yIndex, cellProb, z, covMatrixInv, splitPoint, numberBin)
+    .Call(`_LinCDE_LinCDESplit`, X, yIndex, cellProb, z, covMatrixInv, splitPoint, numberBin)
 }
 

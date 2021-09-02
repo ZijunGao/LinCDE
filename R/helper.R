@@ -32,26 +32,40 @@ countIndex = function(yIndex, numberBin) {
 #'
 #' @export
 dfToLambda = function(z, counts, splineDf, df, numberBin, penalty = NULL){
+  if(var(penalty) > 0){stop("currently only allow constant penalty.factors")}
   if(splineDf <= df){return (0)}
   if(df == 0){return (1e9)}
 
   # estimate the weight
-  model = suppressWarnings(glm(counts ~ z, family = "poisson"))
-  weight = model$fitted.values/numberBin
+  # model = suppressWarnings(glm(counts ~ z, family = poisson()))
+  # weight = model$fitted.values/numberBin
+  #
+  # Hessian = 2 * (t(z) %*% diag(weight) %*% z - t(z) %*% weight %*% weight %*% z * numberBin / sum(counts))
+  # svdHessian = svd(Hessian)
+  # Omega = diag(1/sqrt(svdHessian$d+1e-3)) %*% t(svdHessian$u) %*% diag(penalty) %*% svdHessian$u %*% diag(1/sqrt(svdHessian$d+1e-3))
+  # eigenVal = svd(Omega)$d
+  #
+  # lambdaMax = sum(1/eigenVal)/df; lambdaMin = 0; lambda = (lambdaMax+lambdaMin)/2; value =  sum(1/(1+eigenVal*lambda))
+  # while(abs(value - df) > 1e-3){
+  #   if(value > df){lambdaMin = lambda; lambda = (lambdaMax+lambdaMin)/2; value = sum(1/(1+eigenVal*lambda))}
+  #   else {lambdaMax = lambda; lambda = (lambdaMax+lambdaMin)/2; value = sum(1/(1+eigenVal*lambda))}
+  # }
+  #
+  # lambda/2
 
-  Hessian = 2 * (t(z) %*% diag(weight) %*% z - t(z) %*% weight %*% weight %*% z * numberBin / sum(counts))
-  svdHessian = svd(Hessian)
-  Omega = diag(1/sqrt(svdHessian$d+1e-3)) %*% t(svdHessian$u) %*% diag(penalty) %*% svdHessian$u %*% diag(1/sqrt(svdHessian$d+1e-3))
-  eigenVal = svd(Omega)$d
-
-  lambdaMax = sum(1/eigenVal)/df; lambdaMin = 0; lambda = (lambdaMax+lambdaMin)/2; value =  sum(1/(1+eigenVal*lambda))
+  model = suppressWarnings(glm(counts~z, family = poisson()))
+  prob = model$fitted.values/sum(counts)
+  Hessian = (t(z) %*% diag(prob) %*% z - t(z) %*% prob %*% prob %*% z) * sum(counts)
+  eigenVal = svd(Hessian)$d
+  lambdaMax = sum(eigenVal)/df; lambdaMin = 0; lambda = (lambdaMax+lambdaMin)/2
+  value = sum(eigenVal/(eigenVal+lambda))
   while(abs(value - df) > 1e-3){
-    if(value > df){lambdaMin = lambda; lambda = (lambdaMax+lambdaMin)/2; value = sum(1/(1+eigenVal*lambda))}
-    else {lambdaMax = lambda; lambda = (lambdaMax+lambdaMin)/2; value = sum(1/(1+eigenVal*lambda))}
+    if(value > df){lambdaMin = lambda; lambda = (lambdaMax+lambdaMin)/2; value = sum(eigenVal/(eigenVal+lambda))}
+    else {lambdaMax = lambda; lambda = (lambdaMax+lambdaMin)/2; value = sum(eigenVal/(eigenVal+lambda))}
   }
-
-  return (lambda/2)
+  lambda/numberBin
 }
+
 
 #' importanceScore
 #'

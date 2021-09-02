@@ -92,10 +92,10 @@ There are a few hyper-parameters critical to the performance of LinCDE boosting.
     In standard boosting, deep trees are problematic due to overfitting. In LinCDE, the overfitting issue is more severe because the density estimation problem at terminal nodes is more complicated than regression and classification. As a result, we do not recommend _depth > 5_.
 
 ```{r depth, fig.height=10, fig.width = 10, fig.align="center", eval = FALSE}
-model.LGD.D1 = LinCDE.boost(X = X, y = y.LGD, depth = 1, df = 2, n.trees = 100, verbose = FALSE)
+model.LGD.D1 = LinCDE.boost(X = X, y = y.LGD, depth = 1, df = 2, n.trees = 100, verbose = TRUE, newKnots = TRUE)
 predict.LGD.D1 = predict(object = model.LGD.D1, X = XVal, y = yVal.LGD, densityOnly = FALSE)
 
-model.LGD.D2 = LinCDE.boost(y = y.LGD, X = X, depth = 2, df = 2, n.trees = 100, verbose = FALSE) 
+model.LGD.D2 = LinCDE.boost(y = y.LGD, X = X, depth = 2, df = 2, n.trees = 100, verbose = TRUE, newKnots = TRUE) 
 predict.LGD.D2 = predict(object = model.LGD.D2, X = XVal, y = yVal.LGD, densityOnly = FALSE)
 ```
 
@@ -258,7 +258,11 @@ density.modality = function(X, y = NULL){
 set.seed(1)
 y.modality = density.modality(X)
 model.modality = LinCDE.boost(y = y.modality, X = X, df = 8,
-                                 depth = 3, n.trees = 200, shrinkage = 0.05)
+                                 depth = 3, n.trees = 200, shrinkage = 0.05, newKnots = TRUE)
+
+set.seed(100)
+yVal.modality = density.modality(XVal)
+plot(predict(model.modality, X = XVal, y = yVal.modality, densityOnly = FALSE)$testLogLikelihoodHistory)
 ```
 
 ```{r modality example (hidden), echo = FALSE}
@@ -312,11 +316,15 @@ density.skewness = function(X, y = NULL){
   }
 }
 
-set.seed(1)
-y.skewness = density.skewness(X)
+set.seed(1) # set.seed(1)
+y.skewness = density.skewness(X); hist(y.skewness)
 model.skewness = LinCDE.boost(X = X, y = y.skewness, df = 8,
-                                 depth = 3, n.trees = 200, shrinkage = 0.2,   
-                                 alpha = 0.8)
+                                 depth = 3, n.trees = 50, shrinkage = 0.2,   
+                                 alpha = 0.8, newKnots = TRUE)
+
+# to be deleted
+model.skewness$trees[[50]][,1:6]
+
 ```
 
 ```{r skewness example (hidden), echo = FALSE}
@@ -337,7 +345,7 @@ model.skewness = readRDS(file = "./data/modelSkewness.rds")
 
 ```{r skewness plot,fig.height=10, fig.width = 10, fig.align="center"}
 # conditional density plot
-densityPlot(X = XProfile, trueDensity = density.skewness, model = model.skewness)
+densityPlot(X = XProfile, trueDensity = density.skewness, model = model.skewness.2)
 ```
 
 ```{r skewness importance plot, fig.height=10, fig.width = 10, fig.align="center"}
@@ -421,6 +429,54 @@ densityPlot(X = XProfile, trueDensity = density.centering,  model = model.center
 # saveRDS(model.centering.no, file = "./data/modelCenteringNo.rds")
 ```
 
+
+```{r playground (hidden), include = TRUE}
+# an unfriendly example
+set.seed(100)
+y.skewness = density.skewness(X)
+model.skewness = LinCDE.boost(X = X, y = y.skewness, df = 8,
+                                 depth = 3, n.trees = 30, shrinkage = 0.2,   
+                                 alpha = 0.8, newKnots = TRUE)
+densityPlot(X = XProfile, trueDensity = density.skewness, model = model.skewness)
+
+# split in the first tree (actually the same split for the first 10 trees)
+# data does not look like bi-modal
+# changing subsample, numberBin does not help much
+(tree1 = model.skewness$trees[[1]][,1:6])
+indexSub = intersect(which(X[,1] < tree1$SplitCodePred[1]), which(X[,2] > tree1$SplitCodePred[2]))
+XSub = X[indexSub,]; y.skewness.Sub = y.skewness[indexSub]
+# histogram in the subregion
+p1 = hist(y.skewness.Sub)
+set.seed(318); p2 = hist(density.skewness(XSub), breaks = 30)
+plot(p1, col=rgb(0,0,1,1/4), xlim=c(-3,3), main = "histogram in the subregion", xlab = "y") 
+plot(p2, col=rgb(1,0,0,1/4), xlim=c(-3,3), add=T) 
+legend("topright", legend = c("training data", "validation data"), col = c(rgb(0,0,1,1/4), rgb(1,0,0,1/4)), lwd = 10, lty = 1)
+
+# compare glmnet family = "poisson" V.S. family = poisson()
+startTime1 = proc.time()
+model = glmnet::glmnet(x = z, y = counts, family = poisson(), lambda = 0, alpha = 0, standardize = FALSE, intercept = TRUE)
+endTime1 = proc.time()
+print(endTime1[3] - startTime1[3])
+model$beta
+
+startTime2 = proc.time()
+model = glmnet::glmnet(x = z, y = counts, family = "poisson", lambda = 0, alpha = 0, standardize = FALSE, intercept = TRUE)
+endTime2 = proc.time()
+print(endTime2[3] - startTime2[3])
+model$beta
+
+startTime3 = proc.time()
+model = glmnet::glmnet(x = z, y = counts, family = poisson(), nlambda = 100, alpha = 0, standardize = FALSE, intercept = TRUE)
+endTime3 = proc.time()
+print(endTime3[3] - startTime3[3])
+model$beta[,100]
+
+startTime4 = proc.time()
+model = glmnet::glmnet(x = z, y = counts, family = "poisson", nlambda = 100, alpha = 0, standardize = FALSE, intercept = TRUE)
+endTime4 = proc.time()
+print(endTime4[3] - startTime4[3])
+model$beta[,100]
+```
 
 <!-- # References -->
 
