@@ -1,37 +1,41 @@
+---
+output: github_document
+---
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "man/figures/README-",
+  out.width = "100%"
+)
+```
 
 # LinCDE
 
 <!-- badges: start -->
 <!-- badges: end -->
 
-Conditional density estimation is a fundamental problem in statistics,
-with various scientific and practical applications such as genetics and
-economics. We propose a conditional density estimator based on tree
-boosting and Lindsey’s method (LinCDE). LinCDE admits flexible modeling
-of the density family and captures distributional characteristics like
-modality and shape. In particular, LinCDE always produces smooth and
-non-negative density estimates. Furthermore, in the presence of
-nuisances, LinCDE identifies the influential covariates to the response
-distribution.
+
+Conditional density estimation is a fundamental problem in statistics, with various scientific and practical applications such as genetics and economics. We propose a conditional density estimator based on tree boosting and Lindsey's method (LinCDE). LinCDE admits flexible modeling of the density family and captures distributional characteristics like modality and shape. In particular, LinCDE always produces smooth and non-negative density estimates. Furthermore, in the presence of nuisances, LinCDE identifies the influential covariates to the response distribution.
+
 
 ## Installation
 
-You can install the development version of LinCDE from
-[GitHub](https://github.com/) with:
+You can install the development version of LinCDE from [GitHub](https://github.com/) with:
 
-``` r
+```{r installation}
 # install.packages("devtools")
 # devtools::install_github("ZijunGao/LinCDE")
 ```
 
 ## Example
 
-Below is a basic example of using LinCDE for conditional mean
-estimation.
+Below is a basic example of using LinCDE for conditional mean estimation. 
 
-``` r
+```{r example, fig.height=10, fig.width = 10, fig.align="center"}
 library(LinCDE)
 # true conditional density function; LGD stands for locally Gaussian design
 density.LGD = function(X, y = NULL){
@@ -58,6 +62,5 @@ model.example = LinCDE.boost(X = X, y = y.LGD, verbose = F)
 densityPlot(X = XProfile, trueDensity = density.LGD, model = model.example)
 ```
 
-<img src="man/figures/README-example-1.png" width="100%" style="display: block; margin: auto;" />
-
 For more examples, please see the vignette.
+
