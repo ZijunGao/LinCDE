@@ -60,4 +60,4 @@ densityPlot(X = XProfile, trueDensity = density.LGD, model = model.example)
 
 <img src="man/figures/README-example-1.png" width="100%" style="display: block; margin: auto;" />
 
-For more examples, please see the vignette.
+For more examples, please see the vignette :)

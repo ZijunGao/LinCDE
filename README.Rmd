@@ -1,7 +1,6 @@
 ---
 output: github_document
 ---
-
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
 ```{r, include = FALSE}
@@ -62,5 +61,5 @@ model.example = LinCDE.boost(X = X, y = y.LGD, verbose = F)
 densityPlot(X = XProfile, trueDensity = density.LGD, model = model.example)
 ```
 
-For more examples, please see the vignette.
+For more examples, please see the vignette :)
 

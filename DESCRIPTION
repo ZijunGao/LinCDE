@@ -1,14 +1,8 @@
-
 Package: LinCDE
 Type: Package
-<<<<<<< HEAD
 Title: Conditional Density Estimation via Boosting
-Version: 0.1.1
-Date: 2021-10
-=======
-Title: Conditional density estimation via boosting
 Version: 0.2.0
->>>>>>> efd67733a672e3f2d0408dbb0fe75c8893f8fde1
+Date: 2021-10
 Authors@R: c(person("Zijun", "Gao", role = c("aut","cre"), email = "zijungao@stanford.edu"),
 	     person("Trevor", "Hastie", role=c("aut")))
 Maintainer: Zijun Gao <zijungao@stanford.edu>
