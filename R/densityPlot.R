@@ -6,25 +6,51 @@
 #' @param maxY the maximal possible response value. For more, see \code{minY}. Default is NULL.
 #' @param nGrid the number of response grid points. For more, see \code{minY}. Default is 100.
 #' @param yGrid the response grid to evaluate conditional densities at. Default is NULL.
-#' @param model a conditional density model with a \code{predict} method, e.g., a LinCDE boosting model. The call \code{predict(model, X, y)} should return a vector of estimated conditional densities f(yi | Xi). To only plot the true conditional densities, leave the \code{model} blank. Default is NULL.
-#' @param trueDensity true conditional density function. The call \code{trueDensity(X, y)} should return a vector of true conditional densities f(yi | Xi). To only plot LinCDE's estimated conditional densities, leave the \code{trueDensity} blank. Default is NULL.
-#' @param plot TODO!!!
+#' @param model a conditional density model with a \code{predict} method, e.g., a LinCDE boosting model. The call \code{predict(model, X, y)} should return a vector of estimated conditional densities f(yi | Xi). Default is NULL. To only plot the true conditional densities, use the default value.
+#' @param trueDensity true conditional density function. The call \code{trueDensity(X, y)} should return a vector of true conditional densities f(yi | Xi). Default is NULL. To only plot LinCDE's estimated conditional densities, use the default value.
+#' @param plot if \code{TRUE}, the density plots are printed. If \code{FALSE}, the data frame of true/estimated densities to generate the density plots are returned.
+#' @param layout a numeric vector of length 2 giving the number of columns, rows in the multipanel display. In general, a conditioning plot in lattice consists of several panels arranged in a rectangular array and layout determines this arrangement. Default is to arrange panels in an approximately square array.
+#' @param factor.levels vector of character strings or expressions giving the levels of the conditioning variable. The \code{factor.levels} will be written on the panel strips. Default is R (for "region") followed by the index of the region, e.g., R1.
+#' @param strip.font.size a numeric value indicating the font size on strips in the multipanel density plots. Default is 0.8.
 #'
 #' @return The function outputs a lattice plot of conditional densities.
 #' @export
-densityPlot = function(X, minY = NULL, maxY = NULL, nGrid = 100, yGrid = NULL,  model = NULL, trueDensity = NULL, plot = TRUE){
+densityPlot = function(X, minY = NULL, maxY = NULL, nGrid = 100, yGrid = NULL, model = NULL, trueDensity = NULL, plot = TRUE, layout = NULL, factor.levels = NULL, strip.font.size = NULL){
   # preprocess
-  if(is.null(dim(X))){X = matrix(X, nrow = 1)}
-  n = dim(X)[1]; d = dim(X)[2]
-  XGrid = X[rep(seq(1,n), rep(nGrid, n)), ]
+  if(!is.null(model)){
+    d = length(model$var.names)
+    if(is.null(dim(X))){
+      if(d == 1){X = matrix(X, ncol = 1)} # one covariate
+      if(d > 1){X = matrix(X, nrow = 1)} # one data point
+    }
+    n = dim(X)[1]
+    if(!is.null(colnames(X))){
+      if(min(colnames(X) %in% model$var.names) == 0)
+        stop("please input all covariates")
+      X = X[, model$var.names, drop = FALSE]
+    } else {
+      if(dim(X)[2] != d)
+        stop("please input all covariates and their names")
+      colnames(X) = model$var.names
+      # print("no input var.names and var.names from the LinCDE.boost model are used")
+    }
+  } else {
+    if(is.null(dim(X))){X = matrix(X, ncol = 1)}
+    n = dim(X)[1]
+  }
+  XGrid = X[rep(seq(1,n), rep(nGrid, n)), , drop = FALSE]
   if(is.null(yGrid)){
-    if(is.null(model) && (is.null(minY)||is.null(maxY))){stop("please input the a grid or the range of responses")}
+    if(is.null(model) && (is.null(minY)||is.null(maxY))){stop("please input a response grid or the range of responses")}
     if(is.null(minY)){minY = 1.02 * min(model$y) - 0.02 * max(model$y)}
     if(is.null(maxY)){maxY = 1.02 * max(model$y) - 0.02 * min(model$y)}
     yGrid = seq(minY, maxY, length.out = (nGrid+1))
     yGrid = (yGrid[1:nGrid] + yGrid[2:(nGrid+1)])/2
-  }
-  nGrid = length(yGrid); yGrid = rep(yGrid, n)
+  } else{nGrid = length(yGrid)}
+  yGrid = rep(yGrid, n)
+
+  if(is.null(layout)){layout = c(ceiling(n/floor(sqrt(n))), floor(sqrt(n)))}
+  if(is.null(factor.levels)){factor.levels = paste("R", seq(1,n))}
+  if(is.null(strip.font.size)){strip.font.size = 0.8}
 
   # lattice plot of the true and estimated densities
   if(!is.null(trueDensity) && !is.null(model)){
@@ -40,8 +66,8 @@ densityPlot = function(X, minY = NULL, maxY = NULL, nGrid = 100, yGrid = NULL,  
     key=list(space="top", columns = 2,
              lines=list(col=c("blue", "red"), lty=c(3,1), lwd=3),
              text=list(c("truth", "estimated")), cex = 1)
-    strip = lattice::strip.custom(bg="lightgrey", factor.levels = paste("R", seq(1,n)), par.strip.text=list(col="black", cex=0.8, font=1))
-    densityPlot = lattice::xyplot(density ~ y | factor(group), group = latticeCDE$method, data = latticeCDE, type = "l", col = c("blue", "red"), lty = c(3,1), lwd = 3, ylab=list("conditional density", cex = 1), xlab = list("y", cex = 1), key = key, aspect = 0.75, layout = c(floor(sqrt(n)),ceiling(n/floor(sqrt(n)))), strip = strip, scales = list(cex = 1), main = "Estimated and true conditional densities")
+    strip = lattice::strip.custom(bg="lightgrey", factor.levels = factor.levels, par.strip.text=list(col="black", cex=strip.font.size, font=1))
+    densityPlot = lattice::xyplot(density ~ y | factor(group), group = latticeCDE$method, data = latticeCDE, type = "l", col = c("blue", "red"), lty = c(3,1), lwd = 3, ylab=list("conditional density", cex = 1), xlab = list("y", cex = 1), key = key, aspect = 0.75, layout = layout, strip = strip, scales = list(cex = 1), main = "Estimated and true conditional densities")
   }
 
   # lattice plot of the true densities
@@ -51,8 +77,8 @@ densityPlot = function(X, minY = NULL, maxY = NULL, nGrid = 100, yGrid = NULL,  
     latticeCDE = data.frame(yGrid); colnames(latticeCDE) = "y"
     latticeCDE$density = trueDens
     latticeCDE$group = rep(seq(1,n), rep(nGrid,n))
-    strip = lattice::strip.custom(bg="lightgrey", factor.levels = paste("R", seq(1,n)), par.strip.text=list(col="black", cex=0.8, font=1))
-    densityPlot = lattice::xyplot(density ~ y | factor(group), data = latticeCDE, type = "l", col = c("blue"), lty = 3, lwd = 3, ylab=list("conditional density", cex = 1), xlab = list("y", cex = 1), aspect = 0.75, layout = c(floor(sqrt(n)),ceiling(n/floor(sqrt(n)))), strip = strip, scales = list(cex = 1), main = "True conditional densities")
+    strip = lattice::strip.custom(bg="lightgrey", factor.levels = factor.levels, par.strip.text=list(col="black", cex=strip.font.size, font=1))
+    densityPlot = lattice::xyplot(density ~ y | factor(group), data = latticeCDE, type = "l", col = c("blue"), lty = 3, lwd = 3, ylab=list("conditional density", cex = 1), xlab = list("y", cex = 1), aspect = 0.75, layout = layout, strip = strip, scales = list(cex = 1), main = "True conditional densities")
   }
 
   # lattice plot of the estimated densities
@@ -64,8 +90,9 @@ densityPlot = function(X, minY = NULL, maxY = NULL, nGrid = 100, yGrid = NULL,  
     latticeCDE = data.frame(yGrid); colnames(latticeCDE) = "y"
     latticeCDE$density = c(estDens)
     latticeCDE$group = rep(seq(1,n), rep(nGrid,n))
-    strip = lattice::strip.custom(bg="lightgrey", factor.levels = paste("R", seq(1,n)), par.strip.text=list(col="black", cex=0.8, font=1))
-    densityPlot = lattice::xyplot(density ~ y | factor(group), data = latticeCDE, type = "l", col = c("red"), lty = 1, lwd = 3, ylab=list("conditional density", cex = 1), xlab = list("y", cex = 1), aspect = 0.75, layout = c(floor(sqrt(n)),ceiling(n/floor(sqrt(n)))), strip = strip, scales = list(cex = 1), main = "Estimated conditional densities")
+    strip = lattice::strip.custom(bg="lightgrey", factor.levels = factor.levels, par.strip.text=list(col="black", cex=strip.font.size, font=1))
+    densityPlot = lattice::xyplot(density ~ y | factor(group), data = latticeCDE, type = "l", col = c("red"), lty = 1, lwd = 3, ylab=list("conditional density", cex = 1), xlab = list("y", cex = 1), aspect = 0.75, layout = layout, strip = strip, scales = list(cex = 1), main = "Estimated conditional densities")
   }
+
   if(plot){print(densityPlot)} else {return(latticeCDE)}
 }

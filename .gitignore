@@ -3,3 +3,6 @@
 .RData
 .Ruserdata
 inst/doc
+.RDataTmp
+.RDataTmp1
+.Rapp.history

@@ -6,15 +6,17 @@
 \usage{
 \method{summary}{LinCDE}(
   object,
+  ...,
   cBars = length(object$importanceScore),
   plotit = TRUE,
   order = TRUE,
-  normalize = TRUE,
-  ...
+  normalize = TRUE
 )
 }
 \arguments{
 \item{object}{a LinCDE boosting model.}
+
+\item{...}{other parameters.}
 
 \item{cBars}{the number of bars to plot. If \code{order=TRUE} the only the variables with the \code{cBars} largest relative influence will appear in the barplot. If \code{order=FALSE} then the first \code{cBars} variables will appear in the plot. In either case, the function will return the relative influence of all of the variables.}
 
@@ -22,10 +24,10 @@
 
 \item{order}{an indicator as to whether the plotted and/or returned relative influences are sorted.}
 
-\item{normalize}{if TRUE then returns the normalized influence summing to \code{100}.}
+\item{normalize}{if \code{TRUE} then returns the normalized influence summing to \code{100}.}
 }
 \value{
-This function returns a data frame where the first component is the variable name and the second is the computed relative influence/importance.
+If the \code{object$centering} is \code{FALSE}, this function returns a data frame where the first component is the variable name and the second is the computed relative influence/importance. If the \code{object$centering} is \code{TRUE}, this function returns two data frames \code{location} and \code{beyondLocation}. In each data frame, the first component is the variable name and the second is the computed relative influence/importance. The \code{location} data frame records the relative influence/importance from \code{object$centeringModel}, and the \code{beyondLocation} data frame records the relative influence/importance from the LinCDE boosting fitted to the residuals of \code{object$centeringModel}.
 }
 \description{
 This function provides the relative covariate influence/importance of a LinCDE boosting model.

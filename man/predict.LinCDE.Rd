@@ -4,10 +4,19 @@
 \alias{predict.LinCDE}
 \title{predict.LinCDE}
 \usage{
-\method{predict}{LinCDE}(object, X, y = NULL, splitPointYTest = NULL, densityOnly = TRUE, ...)
+\method{predict}{LinCDE}(
+  object,
+  ...,
+  X = NULL,
+  y = NULL,
+  splitPointYTest = NULL,
+  densityOnly = TRUE
+)
 }
 \arguments{
 \item{object}{a LinCDE boosting model.}
+
+\item{...}{other parameters.}
 
 \item{X}{input matrix for prediction, of dimension nobs x nvars; each row represents an observation vector.}
 

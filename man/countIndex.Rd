@@ -7,7 +7,7 @@
 countIndex(yIndex, numberBin)
 }
 \arguments{
-\item{yIndex}{vector of indices representing which bins the responoses fall into.}
+\item{yIndex}{vector of indices representing which bins the responses fall into.}
 
 \item{numberBin}{the number of bins for response discretization.}
 }

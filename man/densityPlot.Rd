@@ -11,7 +11,11 @@ densityPlot(
   nGrid = 100,
   yGrid = NULL,
   model = NULL,
-  trueDensity = NULL
+  trueDensity = NULL,
+  plot = TRUE,
+  layout = NULL,
+  factor.levels = NULL,
+  strip.font.size = NULL
 )
 }
 \arguments{
@@ -28,6 +32,14 @@ densityPlot(
 \item{model}{a conditional density model with a \code{predict} method, e.g., a LinCDE boosting model. The call \code{predict(model, X, y)} should return a vector of estimated conditional densities f(yi | Xi). To only plot the true conditional densities, leave the \code{model} blank. Default is NULL.}
 
 \item{trueDensity}{true conditional density function. The call \code{trueDensity(X, y)} should return a vector of true conditional densities f(yi | Xi). To only plot LinCDE's estimated conditional densities, leave the \code{trueDensity} blank. Default is NULL.}
+
+\item{plot}{if \code{TRUE}, the density plots are printed. If \code{FALSE}, the data frame of true/estimated densities to generate the density plots are returned.}
+
+\item{layout}{a numeric vector of length 2 giving the number of columns, rows in the multipanel display. In general, a conditioning plot in Lattice consists of several panels arranged in a rectangular array and layout determines this arrangement. Default is to arrange panels in an approximately square array.}
+
+\item{factor.levels}{vector of character strings or expressions giving the levels of the conditioning variable. The \code{factor.levels} will be written on the panel strips. Default is \code{R} (for "region") followed by the index of the region, e.g., \code{R1}.}
+
+\item{strip.font.size}{a numeric value indicating the font size on strips in the multipanel density plots. Default is 0.8.}
 }
 \value{
 The function outputs a lattice plot of conditional densities.

@@ -6,7 +6,7 @@
 \usage{
 LinCDE.boost(
   y,
-  X,
+  X = NULL,
   splitPoint = 20,
   basis = "nsTransform",
   splineDf = 10,
@@ -24,8 +24,7 @@ LinCDE.boost(
   subsample = 1,
   centering = FALSE,
   centeringMethod = "randomForest",
-  verbose = TRUE,
-  newKnots = FALSE
+  verbose = TRUE
 )
 }
 \arguments{
@@ -35,13 +34,13 @@ LinCDE.boost(
 
 \item{splitPoint}{a list of candidate splits of length nvars or a scalar/vector of candidate split numbers. If \code{splitPoint} is a list, each object is a vector corresponding to a variable's candidate splits (including the left and right end points). The list's objects should be ordered the same as \code{X}'s columns. An alternative input is candidate split numbers, a scalar if all variables share the same number of candidate splits, a vector of length nvars if variables have different numbers of candidate splits. If candidate split numbers are given, each variable's range is divided into \code{splitPoint-1} intervals containing approximately the same number of observations. Default is 20. Note that if a variable has fewer unique values than the desired number of intervals, split intervals corresponding to unique values are created.}
 
-\item{basis}{a character or a matrix specifying sufficient statistics, i.e., spline basis. For \code{basis = "Gaussian"}, y, y^2 are used. For \code{basis = "nsTransform"}, transformed natural cubic splines are used. Default is "nsTransform".}
+\item{basis}{a character or a function specifying sufficient statistics, i.e., spline basis. For \code{basis = "Gaussian"}, y, y^2 are used. For \code{basis = "nsTransform"}, transformed natural cubic splines are used. If \code{basis} is a function, it should take a vector of response values and output a basis matrix: each row stands for a response value and each column stands for a basis function. Default is "nsTransform".}
 
 \item{splineDf}{the number of sufficient statistics/spline basis. If \code{z = "Gaussian"}, \code{splineDf} is set to 2. Default is 10.}
 
-\item{minY}{the user-provided left end of the response range. Default is NULL.}
+\item{minY}{the user-provided left end of the response range. If \code{centering} is \code{TRUE}, \code{minY} is ignored. Default is NULL.}
 
-\item{maxY}{the user-provided right end of the response range. Default is NULL.}
+\item{maxY}{the user-provided right end of the response range. If \code{centering} is \code{TRUE}, \code{maxY} is ignored. Default is NULL.}
 
 \item{numberBin}{the number of bins for response discretization. Default is 40. The response range is divided into \code{numberBin} equal-width bins.}
 
@@ -59,13 +58,13 @@ LinCDE.boost(
 
 \item{terminalSize}{the minimum number of observations in a terminal node. Default is 20.}
 
-\item{alpha}{a hyperparameter in (0,1] to early stop the boosting. A smaller \code{alpha} is more likely to induce early stopping. If \code{alpha = 1}, no early stopping will be conducted.}
+\item{alpha}{a hyperparameter in (0,1] to early stop the boosting. A smaller \code{alpha} is more likely to induce early stopping. If \code{alpha = 1}, no early stopping will be conducted. Default is 0.2.}
 
 \item{subsample}{subsample ratio of the training samples in (0,1]. Default is 1.}
 
 \item{centering}{a logical value. If \code{TRUE}, a conditional mean model is fitted first, and LinCDE boosting is applied to the residuals. The centering is recommended for responses whose conditional support varies wildly. See the LinCDE vignette for examples. Default is \code{FALSE}.}
 
-\item{centeringMethod}{a character or a function specifying the conditional mean estimator. If \code{centeringMethod = "linearRegression"}, a regression model is fitted to the response. If \code{centeringMethod = "randomForest"}, a random forest model is fitted. If \code{centeringMethod} is a function, the call \code{centeringMethod(X)} should return a conditional mean model with a predict function. Default is "randomForest". Applies only to \code{centering = TRUE}.}
+\item{centeringMethod}{a character or a function specifying the conditional mean estimator. If \code{centeringMethod = "linearRegression"}, a regression model is fitted to the response. If \code{centeringMethod = "randomForest"}, a random forest model is fitted. If \code{centeringMethod} is a function, the call \code{centeringMethod(y, X)} should return a conditional mean model with a predict function. Default is "randomForest". Applies only to \code{centering = TRUE}.}
 
 \item{verbose}{a logical value. If \code{TRUE}, progress and performance are printed. Default is \code{TRUE}.}
 }

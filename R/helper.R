@@ -2,9 +2,9 @@
 
 #' countIndex
 #'
-#' This function counts the samples in each bin.
+#' This function counts samples in each bin.
 #'
-#' @param yIndex vector of indices representing which bins the responoses fall into.
+#' @param yIndex vector of indices representing which bins the responses fall into.
 #' @param numberBin the number of bins for response discretization.
 #'
 #' @return The function returns a vector indicating the number of responses in each bin, of length \code{numberBin}.
@@ -28,30 +28,13 @@ countIndex = function(yIndex, numberBin) {
 #' @param numberBin the number of bins for response discretization.
 #' @param penalty separate penalty factors applied to each coefficient, of length \code{splineDf}.
 #'
-#' @return The function returns the regularization parameter.
+#' @return The function returns the regularization parameter corresponding to the desired degrees of freedom.
 #'
 #' @export
 dfToLambda = function(z, counts, splineDf, df, numberBin, penalty = NULL){
-  if(var(penalty) > 0){stop("currently only allow constant penalty.factors")}
+  if(sd(penalty) > 0){stop("currently only allow constant penalty.factors")}
   if(splineDf <= df){return (0)}
   if(df == 0){return (1e9)}
-
-  # estimate the weight
-  # model = suppressWarnings(glm(counts ~ z, family = poisson()))
-  # weight = model$fitted.values/numberBin
-  #
-  # Hessian = 2 * (t(z) %*% diag(weight) %*% z - t(z) %*% weight %*% weight %*% z * numberBin / sum(counts))
-  # svdHessian = svd(Hessian)
-  # Omega = diag(1/sqrt(svdHessian$d+1e-3)) %*% t(svdHessian$u) %*% diag(penalty) %*% svdHessian$u %*% diag(1/sqrt(svdHessian$d+1e-3))
-  # eigenVal = svd(Omega)$d
-  #
-  # lambdaMax = sum(1/eigenVal)/df; lambdaMin = 0; lambda = (lambdaMax+lambdaMin)/2; value =  sum(1/(1+eigenVal*lambda))
-  # while(abs(value - df) > 1e-3){
-  #   if(value > df){lambdaMin = lambda; lambda = (lambdaMax+lambdaMin)/2; value = sum(1/(1+eigenVal*lambda))}
-  #   else {lambdaMax = lambda; lambda = (lambdaMax+lambdaMin)/2; value = sum(1/(1+eigenVal*lambda))}
-  # }
-  #
-  # lambda/2
 
   model = suppressWarnings(glm(counts~z, family = poisson()))
   prob = model$fitted.values/sum(counts)
@@ -69,13 +52,14 @@ dfToLambda = function(z, counts, splineDf, df, numberBin, penalty = NULL){
 
 #' importanceScore
 #'
-#' This function computes the importance score for a LinCDE boosting model.
+#' This function computes the importance scores for a LinCDE boosting model.
 #'
-#' @param tree a LinCDE boosting model.
+#' @param model a LinCDE boosting model.
 #' @param d the number of covariates.
 #' @param n.trees the number of trees in the LinCDE boosting model.
+#' @param var.names vector of variable names.
 #'
-#' @return The function returns a length \code{d} vector of covariate importances.
+#' @return The function returns a vector of covariate importances.
 #'
 #' @export
 importanceScore = function(model, d, n.trees = 1, var.names = NULL){
@@ -86,7 +70,7 @@ importanceScore = function(model, d, n.trees = 1, var.names = NULL){
     index = sort(unique(currTree$SplitVar))
     importance[index[-1]] = importance[index[-1]] + aggregate(x = currTree$ErrorReduction, by = list(currTree$SplitVar), FUN = sum)$x[-1]
   }
-  return (importance)
+  return (sqrt(importance))
 }
 
 #' constructSplitPoint
@@ -119,6 +103,58 @@ constructSplitPoint = function(X, numberSplit){
     names(splitPoint[[i]]) = NULL
   }
   return (splitPoint)
+}
+
+#' constructBasis
+#'
+#' This function construct response basis functions.
+#'
+#' @param splitMidPointY vector of representative response values in each bin after discretization.
+#' @param y vector of responses.
+#' @param splineDf the number of response basis functions.
+#' @param basis a character or a function specifying sufficient statistics, i.e., spline basis. For \code{basis = "Gaussian"}, y, y^2 are used. For \code{basis = "nsTransform"}, transformed natural cubic splines are used. If \code{basis} is a function, it should take a vector of response values and output a basis matrix: each row stands for a response value and each column stands for a basis function.
+#' @param newKnots if \code{TRUE}, quantiles of \code{y} are used as the knots for splines. If \code{FALSE}, quantiles of \code{splitMidPointY} are used as the knots for splines.
+#' @param eps a non-negative scalar added to the \code{penalty} for computational stability. Default is 0.001.
+#'
+#' @return This function returns a list of values.
+#' \itemize{
+#' \item z: the spline basis matrix.
+#' \item penalty: a vector of penalty.factors.
+#' }
+#'
+#' @export
+constructBasis = function(splitMidPointY, y = NULL, splineDf = 2, basis, newKnots = F, eps = 0.001){
+  result = list()
+  if(is.character(basis)){
+    if(basis == "Gaussian"){
+      z = cbind(splitMidPointY, splitMidPointY^2); result$z=z
+      result$penalty = c(1,1)
+    } else if (basis == "nsTransform"){
+      if(newKnots){
+        knotsNs = quantile(y, probs = seq(1, splineDf-1)/splineDf)
+        boundaryKnotsNs = range(y)
+      } else{
+        knotsNs = quantile(splitMidPointY, probs = (1:(splineDf+1))/(splineDf+2))
+        boundaryKnotsNs = knotsNs[c(1,splineDf+1)]
+        knotsNs = knotsNs[-c(1,splineDf+1)]
+      }
+      zOrg = splines::ns(x=splitMidPointY, knots = knotsNs, intercept = FALSE, Boundary.knots = boundaryKnotsNs)
+      # transformation
+      xSeq = min(splitMidPointY) + (seq(1,1000)-0.5)/1000 * (max(splitMidPointY) - min(splitMidPointY)); hTemp = xSeq[2] - xSeq[1]
+      zTemp = splines::ns(x=xSeq, knots = attributes(zOrg)$knots, intercept = attributes(zOrg)$intercept, Boundary.knots = attributes(zOrg)$Boundary.knots)
+      derivative = apply(zTemp, 2, diff, diff = 3)/hTemp^3
+      OmegaN = t(derivative) %*% derivative * hTemp; OmegaN = OmegaN/max(OmegaN)
+      svdOmegaN = svd(OmegaN)
+      penalty = svdOmegaN$d/sum(svdOmegaN$d) * splineDf + eps # + eps(0.001) for robustness
+      result$zTransformMatrix = svdOmegaN$u %*% diag(sqrt(penalty[splineDf]/penalty))
+      z=zOrg%*%result$zTransformMatrix; attributes(z)=attributes(zOrg); result$z=z
+      result$penalty = rep(1, splineDf)
+    }
+  } else if(is.function(basis)){
+    result$z = basis(splitMidPointY)
+    result$penalty = rep(1, dim(z)[2])
+  }
+  return (result)
 }
 
 

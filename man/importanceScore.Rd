@@ -7,11 +7,13 @@
 importanceScore(model, d, n.trees = 1, var.names = NULL)
 }
 \arguments{
+\item{model}{a LinCDE boosting model.}
+
 \item{d}{the number of covariates.}
 
 \item{n.trees}{the number of trees in the LinCDE boosting model.}
 
-\item{tree}{a LinCDE boosting model.}
+\item{var.names}{vector of variable names.}
 }
 \value{
 The function returns a length \code{d} vector of covariate importances.
