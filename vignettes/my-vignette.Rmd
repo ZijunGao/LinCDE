@@ -94,7 +94,7 @@ There are a few hyper-parameters critical to the performance of LinCDE boost. Th
     
     In standard boosting, deep trees are problematic due to overfitting. In LinCDE boost, the overfitting issue is more severe than standard boosting because the density estimation problem at terminal nodes is more complicated than regression and classification. As a result, we do not recommend _depth > 5_.
 
-```{r depth, fig.height=10, fig.width = 10, fig.align="center", eval = FALSE}
+```{r depth, fig.height=6, fig.width = 6, fig.align="center", eval = FALSE}
 model.LGD.D1 = LinCDE.boost(X = X, y = y.LGD, depth = 1, n.trees = 100, verbose = TRUE)
 predict.LGD.D1 = predict(model.LGD.D1, X = XVal, y = yVal.LGD, densityOnly = FALSE)
 
@@ -102,7 +102,7 @@ model.LGD.D2 = LinCDE.boost(y = y.LGD, X = X, depth = 2, n.trees = 100, verbose 
 predict.LGD.D2 = predict(model.LGD.D2, X = XVal, y = yVal.LGD, densityOnly = FALSE)
 ```
 
-```{r depth (hidden), echo = FALSE, fig.height=10, fig.width = 10, fig.align="center"}
+```{r depth (hidden), echo = FALSE, fig.height=6, fig.width = 6, fig.align="center"}
 # saveRDS(predict.LGD.D1, file =  "./data/predictLGDD1.rds")
 # saveRDS(predict.LGD.D2, file =  "./data/predictLGDD2.rds")
 
@@ -131,7 +131,7 @@ There are a number of secondary hyper-parameters. We recommend starting with the
   
   In below, the prior distribution is similar to the true conditional density. It takes LinCDE boost about $15$ iterations to converge, much faster compared to the $50$ iterations with the Gaussian prior.
   
-```{r prior, fig.height=10, fig.width = 10, fig.align="center", eval = FALSE, tidy = FALSE}
+```{r prior, fig.height=6, fig.width =6, fig.align="center", eval = FALSE, tidy = FALSE}
 # input a heterogeneous conditional density function as prior
 density.LGD.prior = function(X, y = NULL){
   if(is.null(dim(X))){X = matrix(X, nrow = 1)}
@@ -146,7 +146,7 @@ model.LGD.prior = LinCDE.boost(X = X, y = y.LGD, depth = 2, df = 2, n.trees = 10
 predict.LGD.prior = predict(model.LGD.prior, X = XVal, y = yVal.LGD, densityOnly = FALSE)
 ```
   
-```{r prior (hidden), echo = FALSE, fig.height=10, fig.width = 10, fig.align="center"}
+```{r prior (hidden), echo = FALSE, fig.height=6, fig.width = 6, fig.align="center"}
 # saveRDS(predict.LGD.prior, file = "./data/predictLGDPrior.rds")
 predict.LGD.prior = readRDS(file = "./data/predictLGDPrior.rds") # training log-like: -0.646
 
@@ -228,8 +228,8 @@ densityPlot(X = XProfile, trueDensity = density.LGD, model = model.LGD.final, fa
 
 To identify the influential covariates, we plot the importance scores for each covariate. The importance score barplot indicates that the first two candidates contribute the most to the improvement in the objective, which agrees with the underlying density model.
 
-```{r importance plot, fig.height=10, fig.width = 10, fig.align="center"}
-summary(model.LGD.final, cBars = 10)
+```{r importance plot, fig.height=6, fig.width = 6, fig.align="center"}
+summary(model.LGD.final, cBars = 8)
 ```
 
 ## More examples
@@ -291,8 +291,8 @@ We compare the estimated conditional densities against the truth at the $9$ sele
 densityPlot(X = XProfile, trueDensity = density.modality, model = model.modality, factor.levels = paste("X1=", XProfile[,1], ", X2=", XProfile[,2],  sep = "")) 
 ```
 
-```{r modality importance plot, fig.height=10, fig.width = 10, fig.align="center"}
-summary(model.modality, cBars = 10)
+```{r modality importance plot, fig.height=6, fig.width = 6, fig.align="center"}
+summary(model.modality, cBars = 8)
 ```
 
 For symmetry, we generate asymmetric Gaussian mixture responses. If $X_2 > 0$, the right modal is sharper; if $X_2 < 0$, the left modal is sharper. The larger the $|X_2|$ is, the more asymmetric the conditional distribution is. Meanwhile, we let the responses' locations depend on $X_1$. We follow the aforementioned workflow and set the hyper-parameters at _shrinkage = 0.1_, _depth = 3_, _n.trees = 200_, and _df = 8_. The rest parameters are at default values. 
@@ -341,8 +341,8 @@ model.skewness = readRDS(file = "./data/modelSkewness.rds") # train log-like: -1
 densityPlot(X = XProfile, trueDensity = density.skewness, model = model.skewness, factor.levels = paste("X1=", XProfile[,1], ", X2=", XProfile[,2],  sep = ""))
 ```
 
-```{r skewness importance plot, fig.height=10, fig.width = 10, fig.align="center"}
-summary(model.skewness, cBars = 10)
+```{r skewness importance plot, fig.height=6, fig.width = 6, fig.align="center"}
+summary(model.skewness, cBars = 8)
 ```
 
 ## Centering
@@ -412,15 +412,23 @@ model.centering.OLS = readRDS(file = "./data/modelCenteringOLS.rds") # -1.07
 ```
 
 
-```{r without centering density plot, fig.height=10, fig.width = 10, fig.align="center"}
+```{r without centering density plot, fig.height=6, fig.width = 6, fig.align="center"}
 # without centering
-summary(model.centering.no)
+summary(model.centering.no, cBars = 8)
+```
+
+```{r without centering density plot2, fig.height=10, fig.width = 10, fig.align="center"}
+# without centering
 densityPlot(X = XProfile, trueDensity = density.centering, model = model.centering.no) 
 ```
 
-```{r with centering density plot,fig.height=10, fig.width = 10, fig.align="center"}
+```{r with centering density plot,fig.height=6, fig.width = 6, fig.align="center"}
 # with centering
-summary(model.centering.OLS)
+summary(model.centering.OLS, cBars = 8)
+```
+
+```{r with centering density plot2,fig.height=10, fig.width = 10, fig.align="center"}
+# with centering
 densityPlot(X = XProfile, trueDensity = density.centering,  model = model.centering.OLS, factor.levels = paste("X1=", XProfile[,1], ", X2=", XProfile[,2],  sep = ""))
 ```
 
@@ -453,12 +461,12 @@ X.transform[,c("MedInc", "AveRooms", "AveBedrms", "Population", "AveOccup")] = l
 
 We start from conditional \emph{mean} estimation. We fit a simple gbm model on the training data. The most influential covariate to the conditional mean is median income (MedInc), followed by longtitude, lattitude, and average occupancy (AveOccup).
 
-```{r mean model, eval = F}
+```{r mean model, eval = F, fig.height=6, fig.width = 6, fig.align="center"}
 meanModel.cahousing = gbm::gbm.fit(y = y.cahousing[indexTrain], x = X[indexTrain, ], distribution = "gaussian", interaction.depth = 3, n.trees = 1000, shrinkage = 0.02, verbose = F)
 summary(meanModel.cahousing)
 ```
 
-```{r mean model (hidden), echo = F, fig.height=10, fig.width = 10, fig.align="center"}
+```{r mean model (hidden), echo = F, fig.height=6, fig.width = 6, fig.align="center"}
 # saveRDS(meanModel.cahousing, file = "./data/meanModelCahousing.rds")
 meanModel.cahousing = readRDS(file = "./data/meanModelCahousing.rds")
 summary(meanModel.cahousing)
@@ -470,10 +478,15 @@ model.cahousing.Gaussian = LinCDE.boost(y = y.cahousing[indexTrain], X=X[indexTr
 summary(model.cahousing.Gaussian)
 ```
 
-```{r Gaussian fit (hidden), echo = F, fig.height=10, fig.width = 10, fig.align="center"}
+```{r Gaussian fit (hidden), echo = F, fig.height=6, fig.width = 6, fig.align="center"}
 # saveRDS(model.cahousing.Gaussian, file = "./data/modelCahousingGaussian.rds")
 model.cahousing.Gaussian = readRDS(file = "./data/modelCahousingGaussian.rds") # train log-like: -5.45
-summary(model.cahousing.Gaussian)
+
+# plotDirectory = "/Users/zijungao/Desktop/Research/Trevor/densityEstimation/presentation2/plot"
+# plotName = c("importanceCA")
+# pdf(file = paste(plotDirectory, "/", plotName[1], ".pdf", sep = ""), width = 8, height = 8)
+summary(model.cahousing.Gaussian, cBars = 8)
+# dev.off()
 ```
 
 ```{r Gaussian plot}
@@ -516,11 +529,11 @@ model.cahousing.ns = LinCDE.boost(y=y.cahousing[indexTrain],X=X[indexTrain,], ba
 summary(model.cahousing.ns)
 ```
 
-```{r ns fit (hidden), echo = F, fig.height=10, fig.width = 10, fig.align="center"}
+```{r ns fit (hidden), echo = F, fig.height=6, fig.width = 6, fig.align="center"}
 # TODO training log-like: -5.25
 # saveRDS(model.cahousing.ns, file = "./data/modelCahousingNs.rds")
 model.cahousing.ns = readRDS(file = "./data/modelCahousingNs.rds") # train log-like: -5.25
-summary(model.cahousing.ns)
+summary(model.cahousing.ns, cBars = 8)
 ```
 
 The importances look similar. We make a plot of the estimated conditional densities at the same covariate configurations. As above, the conditional density's location shifts to the right as the *income* increases, and the conditional density's spread decreases as the *occupancy* grows in the middle and right columns. Different from above, the estimated conditional densities have diverse shapes beyond Gaussian. In local regions of $2.32$ ($20\%$ quantile) or $3.45$ ($50\%$ quantile) median incomes, the conditional distributions appear right-skewed. In regions of $3.45$ ($50\%$ quantile) median income and $2.36$ ($20\%$ quantile), $2.84$ ($50\%$ quantile) average occupancies, the conditional distributions have flatter peaks compared to the Gaussian distribution.
@@ -547,60 +560,4 @@ for(i in c(7,8,9,4,5,6,1,2,3)){
 ```
 
 ## Plug in your own data and have fun with LinCDE!
-
-```{r supplementary (hidden), include = FALSE}
-# saveRDS(model.centering.no, file = "./data/modelCenteringNo.rds")
-```
-
-
-```{r playground (hidden), include = F}
-# an unfriendly example
-# set.seed(100)
-# y.skewness = density.skewness(X)
-# model.skewness = LinCDE.boost(X = X, y = y.skewness, df = 8,
-#                                  depth = 3, n.trees = 30, shrinkage = 0.2,   
-#                                  alpha = 0.8)
-# densityPlot(X = XProfile, trueDensity = density.skewness, model = model.skewness)
-
-# split in the first tree (actually the same split for the first 10 trees)
-# data does not look like bi-modal
-# changing subsample, numberBin does not help much
-# (tree1 = model.skewness$trees[[1]][,1:6])
-# indexSub = intersect(which(X[,1] < tree1$SplitCodePred[1]), which(X[,2] > tree1$SplitCodePred[2]))
-# XSub = X[indexSub,]; y.skewness.Sub = y.skewness[indexSub]
-# # histogram in the subregion
-# p1 = hist(y.skewness.Sub)
-# set.seed(318); p2 = hist(density.skewness(XSub), breaks = 30)
-# plot(p1, col=rgb(0,0,1,1/4), xlim=c(-3,3), main = "histogram in the subregion", xlab = "y") 
-# plot(p2, col=rgb(1,0,0,1/4), xlim=c(-3,3), add=T) 
-# legend("topright", legend = c("training data", "validation data"), col = c(rgb(0,0,1,1/4), rgb(1,0,0,1/4)), lwd = 10, lty = 1)
-# 
-# # compare glmnet family = "poisson" V.S. family = poisson()
-# startTime1 = proc.time()
-# model = glmnet::glmnet(x = z, y = counts, family = poisson(), lambda = 0, alpha = 0, standardize = FALSE, intercept = TRUE)
-# endTime1 = proc.time()
-# print(endTime1[3] - startTime1[3])
-# model$beta
-# 
-# startTime2 = proc.time()
-# model = glmnet::glmnet(x = z, y = counts, family = "poisson", lambda = 0, alpha = 0, standardize = FALSE, intercept = TRUE)
-# endTime2 = proc.time()
-# print(endTime2[3] - startTime2[3])
-# model$beta
-# 
-# startTime3 = proc.time()
-# model = glmnet::glmnet(x = z, y = counts, family = poisson(), nlambda = 100, alpha = 0, standardize = FALSE, intercept = TRUE)
-# endTime3 = proc.time()
-# print(endTime3[3] - startTime3[3])
-# model$beta[,100]
-# 
-# startTime4 = proc.time()
-# model = glmnet::glmnet(x = z, y = counts, family = "poisson", nlambda = 100, alpha = 0, standardize = FALSE, intercept = TRUE)
-# endTime4 = proc.time()
-# print(endTime4[3] - startTime4[3])
-# model$beta[,100]
-```
-
-<!-- # References -->
-
 

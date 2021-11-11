@@ -33,21 +33,21 @@ summary.LinCDE = function(object, ..., cBars = length(object$importanceScore), p
                 col = rev(rainbow(cBars, start = 0/6, end = 1/6)),
                 names = colnames(rel.inf.total)[index[cBars:1]],
                 xlab = "Relative influence",
-                xlim = c(0, max(apply(rel.inf.total, 2, sum))))
+                xlim = c(0, max(apply(rel.inf.total, 2, sum))), las = 2)
         barplot(rel.inf.total[2,index[cBars:1]],
                 offset=rel.inf.total[1,index[cBars:1]],
                 add = T, axes = F, axisnames = F, horiz=T,
-                col = rbind(rainbow(cBars, start = 3/6, end = 4/6)))
+                col = rbind(rainbow(cBars, start = 3/6, end = 4/6)), las = 2)
         legend("bottomright", legend = c("location", "beyond location"), col = c("red", "blue"), lwd = 10)
       } else {
         barplot(rel.inf[index[cBars:1]], horiz = TRUE,
                 col = rainbow(cBars, start = 3/6, end = 4/6),
-                names = object$var.names[index[cBars:1]], xlab = "Relative influence")
+                names = object$var.names[index[cBars:1]], xlab = "Relative influence", las = 2)
       }
     } else {
       barplot(rel.inf[index[cBars:1]], horiz = TRUE,
               col = rainbow(cBars, start = 3/6, end = 4/6),
-              names = object$var.names[index[cBars:1]], xlab = "Relative influence (beyond location)")
+              names = object$var.names[index[cBars:1]], xlab = "Relative influence (beyond location)", las = 2)
     }
   }
 
