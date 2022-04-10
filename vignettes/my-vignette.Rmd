@@ -2,19 +2,19 @@
 title: "LinCDE vignette"
 author: "Zijun Gao <br><small>Department of Statistics<br>Stanford University</small>"
 date: "<small>`r Sys.Date()`</small>"
-output: 
+output:
   html_document:
     toc: no
     toc_depth: 3
-    number_sections: true
-    toc_float: 
-      collapsed: false
+    number_sections: yes
+    toc_float:
+      collapsed: no
     code_folding: show
     theme: cerulean
-vignette: >
-  %\VignetteIndexEntry{LinCDE vignette}
-  %\VignetteEngine{knitr::rmarkdown}
-  %\VignetteEncoding{UTF-8}
+vignette: |
+  %\VignetteIndexEntry{LinCDE vignette} 
+  %\VignetteEngine{knitr::knitr} 
+  %\VignetteEncoding{UTF-8}{inputenc}
 ---
 
 ```{r global setting, echo = FALSE}
