@@ -2,6 +2,8 @@
 #'
 #' This function makes predictions from a LinCDE model.
 #' @method predict LinCDE
+#' @importFrom stats predict
+#' @importFrom methods is
 #'
 #' @param object a LinCDE model.
 #' @param X input matrix for prediction, of dimension nobs x nvars; each row represents an observation vector.
@@ -26,7 +28,7 @@ predict.LinCDE = function(object, ..., X = NULL, y = NULL, splitPointYTest = NUL
   if((object$depth == 0) && is.null(X)){
     if(!is.null(y)){X = matrix(runif(length(y)), ncol = 1); colnames(X) = "pseudoX"} else {X = matrix(runif(1), ncol = 1); colnames(X) = "pseudoX"}
   }
-  if("data.frame" %in% class(X)){
+  if(is(X, "data.frame")){
     if(sum(!lapply(X, class) %in% c("numeric", "integer")) > 0){stop("currently only numeric covariates are allowed")}
     X = as.matrix(X)}
   if(is.null(dim(X))){
@@ -45,7 +47,7 @@ predict.LinCDE = function(object, ..., X = NULL, y = NULL, splitPointYTest = NUL
     # print("no input var.names and var.names from the LinCDE.boost model are used")
   }
   if(sum(!apply(X, 2, class) %in% c("numeric", "integer")) > 0){stop("currently only numeric covariates are allowed")}
-  if(!is.null(y)){full = TRUE} else {full = FALSE; y = rnorm(n)}
+  if(!is.null(y)){full = TRUE} else {full = FALSE; densityOnly = FALSE; y = rnorm(n)}
   z = object$z; splineDf = dim(z)[2]; depth = object$depth; basis = object$basis
   centering = object$centering; centeringMethod = object$centeringMethod
 
@@ -154,9 +156,10 @@ predict.LinCDE = function(object, ..., X = NULL, y = NULL, splitPointYTest = NUL
   result = list()
   if(densityOnly){return(cellProb[cbind(seq(1,n), yIndex)]/h)}
   if(full){
-    result$density = cellProb[cbind(seq(1,n), yIndex)]/h; result$testLogLikelihood = mean(log(result$density))}
-  else{result$density = NA; result$testLogLikelihood = NA}
-  result$cellProb = cellProb; result$yDiscretized = splitMidPointY; result$testLogLikelihoodHistory = testLogLikelihood
+    result$density = cellProb[cbind(seq(1,n), yIndex)]/h;
+    result$testLogLikelihood = mean(log(result$density));
+    result$testLogLikelihoodHistory = testLogLikelihood}
+  result$cellProb = cellProb; result$yDiscretized = splitMidPointY
   return(result)
 }
 

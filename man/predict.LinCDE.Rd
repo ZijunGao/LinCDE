@@ -14,7 +14,7 @@
 )
 }
 \arguments{
-\item{object}{a LinCDE boosting model.}
+\item{object}{a LinCDE model.}
 
 \item{...}{other parameters.}
 
@@ -32,9 +32,9 @@ The function returns a list of values.
 \item density: conditional density predictions at \code{y}, vector of length nobs. If \code{y = NULL}, return \code{NA}.
 \item testLogLikelihood: average test log-likelihood at \code{y}. If \code{y = NULL}, return \code{NA}.
 \item cellProb: cell probability prediction matrix, of dimension nobs x number of discretization bins; each row represents a cell probability vector.
-\item yDiscretized: vector of discretized responses/response residuals, of length number of discretization bins. If \code{splitPointYTest = NULL}, discretized responses/response residuals from the LinCDE boosting model \code{object} are used.
+\item yDiscretized: vector of discretized responses/response residuals, of length number of discretization bins. If \code{splitPointYTest = NULL}, discretized responses/response residuals from the LinCDE model \code{object} are used.
 }
 }
 \description{
-This function makes predictions from a LinCDE boosting model.
+This function makes predictions from a LinCDE model.
 }

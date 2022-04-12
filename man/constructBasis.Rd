@@ -16,7 +16,7 @@ constructBasis(
 \arguments{
 \item{splitMidPointY}{vector of representative response values in each bin after discretization.}
 
-\item{y}{vector of responses. If \code{newKnots} is \code{TRUE}, quantiles of \code{y} are used as the knots for splines.}
+\item{y}{vector of responses.}
 
 \item{splineDf}{the number of response basis functions.}
 

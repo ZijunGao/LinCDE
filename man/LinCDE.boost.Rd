@@ -24,7 +24,8 @@ LinCDE.boost(
   subsample = 1,
   centering = FALSE,
   centeringMethod = "randomForest",
-  verbose = TRUE
+  verbose = TRUE,
+  ...
 )
 }
 \arguments{
@@ -32,7 +33,7 @@ LinCDE.boost(
 
 \item{X}{input matrix, of dimension nobs x nvars; each row represents an observation vector.}
 
-\item{splitPoint}{a list of candidate splits of length nvars or a scalar/vector of candidate split numbers. If \code{splitPoint} is a list, each object is a vector corresponding to a variable's candidate splits (including the left and right end points). The list's objects should be ordered the same as \code{X}'s columns. An alternative input is candidate split numbers, a scalar if all variables share the same number of candidate splits, a vector of length nvars if variables have different numbers of candidate splits. If candidate split numbers are given, each variable's range is divided into \code{splitPoint-1} intervals containing approximately the same number of observations. Default is 20. Note that if a variable has fewer unique values than the desired number of intervals, split intervals corresponding to unique values are created.}
+\item{splitPoint}{a list of candidate splits of length nvars or a scalar/vector of candidate split numbers. If \code{splitPoint} is a list, each object is a vector corresponding to a variable's candidate splits (including the left and right endpoints). The list's objects should be ordered the same as X's columns. An alternative input is candidate split numbers, a scalar if all variables share the same number of candidate splits, a vector of length nvars if variables have different numbers of candidate splits. If candidate split numbers are given, each variable's range is divided into \code{splitPoint-1} intervals containing approximately the same number of observations. Default is 20. Note that if a variable has fewer unique values than the desired number of intervals, split intervals corresponding to unique values are created. The minimal accepted \code{splitPoint} is 3.}
 
 \item{basis}{a character or a function specifying sufficient statistics, i.e., spline basis. For \code{basis = "Gaussian"}, y, y^2 are used. For \code{basis = "nsTransform"}, transformed natural cubic splines are used. If \code{basis} is a function, it should take a vector of response values and output a basis matrix: each row stands for a response value and each column stands for a basis function. Default is "nsTransform".}
 
@@ -64,9 +65,11 @@ LinCDE.boost(
 
 \item{centering}{a logical value. If \code{TRUE}, a conditional mean model is fitted first, and LinCDE boosting is applied to the residuals. The centering is recommended for responses whose conditional support varies wildly. See the LinCDE vignette for examples. Default is \code{FALSE}.}
 
-\item{centeringMethod}{a character or a function specifying the conditional mean estimator. If \code{centeringMethod = "linearRegression"}, a regression model is fitted to the response. If \code{centeringMethod = "randomForest"}, a random forest model is fitted. If \code{centeringMethod} is a function, the call \code{centeringMethod(y, X)} should return a conditional mean model with a predict function. Default is "randomForest". Applies only to \code{centering = TRUE}.}
+\item{centeringMethod}{a character or a function specifying the conditional mean estimator. If \code{centeringMethod = "linearRegression"}, a regression model is fitted to the response. If \code{centeringMethod = "randomForest"}, a random forest model is fitted. Hyperparameters used by the centering method can be directly fed to LinCDE.boost, such as \code{nodesize = 10} for \code{centeringMethod = "randomForest"}. If \code{centeringMethod} is a function, the call \code{centeringMethod(y, X)} should return a conditional mean model with a predict function. Default is "randomForest". Applies only to \code{centering = TRUE}.}
 
 \item{verbose}{a logical value. If \code{TRUE}, progress and performance are printed. Default is \code{TRUE}.}
+
+\item{...}{other parameters, such as hyperparameters to be passed to the conditional mean estimator.}
 }
 \value{
 This function returns a LinCDE object consisting of a list of values.

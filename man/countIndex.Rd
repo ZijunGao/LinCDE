@@ -15,5 +15,5 @@ countIndex(yIndex, numberBin)
 The function returns a vector indicating the number of responses in each bin, of length \code{numberBin}.
 }
 \description{
-This function counts the samples in each bin.
+This function counts samples in each bin.
 }

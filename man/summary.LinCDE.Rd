@@ -10,11 +10,12 @@
   cBars = length(object$importanceScore),
   plotit = TRUE,
   order = TRUE,
-  normalize = TRUE
+  normalize = TRUE,
+  main = NULL
 )
 }
 \arguments{
-\item{object}{a LinCDE boosting model.}
+\item{object}{a LinCDE model.}
 
 \item{...}{other parameters.}
 
@@ -25,10 +26,12 @@
 \item{order}{an indicator as to whether the plotted and/or returned relative influences are sorted.}
 
 \item{normalize}{if \code{TRUE} then returns the normalized influence summing to \code{100}.}
+
+\item{main}{a main title for the plot.}
 }
 \value{
-If the \code{object$centering} is \code{FALSE}, this function returns a data frame where the first component is the variable name and the second is the computed relative influence/importance. If the \code{object$centering} is \code{TRUE}, this function returns two data frames \code{location} and \code{beyondLocation}. In each data frame, the first component is the variable name and the second is the computed relative influence/importance. The \code{location} data frame records the relative influence/importance from \code{object$centeringModel}, and the \code{beyondLocation} data frame records the relative influence/importance from the LinCDE boosting fitted to the residuals of \code{object$centeringModel}.
+If the \code{object$centering} is \code{FALSE}, this function returns a data frame where the first component is the variable name and the second is the computed relative influence/importance. If the \code{object$centering} is \code{TRUE}, this function returns two data frames \code{location} and \code{beyondLocation}. In each data frame, the first component is the variable name and the second is the computed relative influence/importance. The \code{location} data frame records the relative influence/importance from \code{object$centeringModel}, and the \code{beyondLocation} data frame records the relative influence/importance from the LinCDE model fitted to the residuals of \code{object$centeringModel}.
 }
 \description{
-This function provides the relative covariate influence/importance of a LinCDE boosting model.
+This function provides relative covariate influences/importances of a LinCDE model.
 }

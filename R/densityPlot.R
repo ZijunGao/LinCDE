@@ -12,10 +12,11 @@
 #' @param layout a numeric vector of length 2 giving the number of columns, rows in the multipanel display. In general, a conditioning plot in lattice consists of several panels arranged in a rectangular array and layout determines this arrangement. Default is to arrange panels in an approximately square array.
 #' @param factor.levels vector of character strings or expressions giving the levels of the conditioning variable. The \code{factor.levels} will be written on the panel strips. Default is R (for "region") followed by the index of the region, e.g., R1.
 #' @param strip.font.size a numeric value indicating the font size on strips in the multipanel density plots. Default is 0.8.
+#' @param main a main title for the plot.
 #'
 #' @return The function outputs a lattice plot of conditional densities.
 #' @export
-densityPlot = function(X, minY = NULL, maxY = NULL, nGrid = 100, yGrid = NULL, model = NULL, trueDensity = NULL, plot = TRUE, layout = NULL, factor.levels = NULL, strip.font.size = NULL){
+densityPlot = function(X, minY = NULL, maxY = NULL, nGrid = 100, yGrid = NULL, model = NULL, trueDensity = NULL, plot = TRUE, layout = NULL, factor.levels = NULL, strip.font.size = NULL, main = NULL){
   # preprocess
   if(!is.null(model)){
     d = length(model$var.names)
@@ -54,6 +55,7 @@ densityPlot = function(X, minY = NULL, maxY = NULL, nGrid = 100, yGrid = NULL, m
 
   # lattice plot of the true and estimated densities
   if(!is.null(trueDensity) && !is.null(model)){
+    if(is.null(main)){main = "Estimated and true conditional densities"}
     trueDens = trueDensity(XGrid, yGrid)
     h = model$splitMidPointY[2] - model$splitMidPointY[1]
     splitPointYTest = seq(model$splitMidPointY[1] - h/2, tail(model$splitMidPointY,n=1) + h/2, length.out = 2 * nGrid)
@@ -67,22 +69,24 @@ densityPlot = function(X, minY = NULL, maxY = NULL, nGrid = 100, yGrid = NULL, m
              lines=list(col=c("blue", "red"), lty=c(3,1), lwd=3),
              text=list(c("truth", "estimated")), cex = 1)
     strip = lattice::strip.custom(bg="lightgrey", factor.levels = factor.levels, par.strip.text=list(col="black", cex=strip.font.size, font=1))
-    densityPlot = lattice::xyplot(density ~ y | factor(group), group = latticeCDE$method, data = latticeCDE, type = "l", col = c("blue", "red"), lty = c(3,1), lwd = 3, ylab=list("conditional density", cex = 1), xlab = list("y", cex = 1), key = key, aspect = 0.75, layout = layout, strip = strip, scales = list(cex = 1), main = "Estimated and true conditional densities")
+    densityPlot = lattice::xyplot(density ~ y | factor(group), group = latticeCDE$method, data = latticeCDE, type = "l", col = c("blue", "red"), lty = c(3,1), lwd = 3, ylab=list("conditional density", cex = 1), xlab = list("y", cex = 1), key = key, aspect = 0.75, layout = layout, strip = strip, scales = list(cex = 1), main = main)
   }
 
   # lattice plot of the true densities
   if(!is.null(trueDensity) && is.null(model)){
+    if(is.null(main)){main = "True conditional densities"}
     trueDens = trueDensity(XGrid, yGrid)
 
     latticeCDE = data.frame(yGrid); colnames(latticeCDE) = "y"
     latticeCDE$density = trueDens
     latticeCDE$group = rep(seq(1,n), rep(nGrid,n))
     strip = lattice::strip.custom(bg="lightgrey", factor.levels = factor.levels, par.strip.text=list(col="black", cex=strip.font.size, font=1))
-    densityPlot = lattice::xyplot(density ~ y | factor(group), data = latticeCDE, type = "l", col = c("blue"), lty = 3, lwd = 3, ylab=list("conditional density", cex = 1), xlab = list("y", cex = 1), aspect = 0.75, layout = layout, strip = strip, scales = list(cex = 1), main = "True conditional densities")
+    densityPlot = lattice::xyplot(density ~ y | factor(group), data = latticeCDE, type = "l", col = c("blue"), lty = 3, lwd = 3, ylab=list("conditional density", cex = 1), xlab = list("y", cex = 1), aspect = 0.75, layout = layout, strip = strip, scales = list(cex = 1), main = main)
   }
 
   # lattice plot of the estimated densities
   if(is.null(trueDensity) && !is.null(model)){
+    if(is.null(main)){main = "Estimated conditional densities"}
     h = model$splitMidPointY[2] - model$splitMidPointY[1]
     splitPointYTest = seq(model$splitMidPointY[1] - h/2, tail(model$splitMidPointY,n=1) + h/2, length.out = 2 * nGrid)
     estDens = predict(object = model, X = XGrid, y = yGrid, splitPointYTest = splitPointYTest)
@@ -91,7 +95,7 @@ densityPlot = function(X, minY = NULL, maxY = NULL, nGrid = 100, yGrid = NULL, m
     latticeCDE$density = c(estDens)
     latticeCDE$group = rep(seq(1,n), rep(nGrid,n))
     strip = lattice::strip.custom(bg="lightgrey", factor.levels = factor.levels, par.strip.text=list(col="black", cex=strip.font.size, font=1))
-    densityPlot = lattice::xyplot(density ~ y | factor(group), data = latticeCDE, type = "l", col = c("red"), lty = 1, lwd = 3, ylab=list("conditional density", cex = 1), xlab = list("y", cex = 1), aspect = 0.75, layout = layout, strip = strip, scales = list(cex = 1), main = "Estimated conditional densities")
+    densityPlot = lattice::xyplot(density ~ y | factor(group), data = latticeCDE, type = "l", col = c("red"), lty = 1, lwd = 3, ylab=list("conditional density", cex = 1), xlab = list("y", cex = 1), aspect = 0.75, layout = layout, strip = strip, scales = list(cex = 1), main = main)
   }
 
   if(plot){print(densityPlot)} else {return(latticeCDE)}

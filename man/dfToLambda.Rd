@@ -20,7 +20,7 @@ dfToLambda(z, counts, splineDf, df, numberBin, penalty = NULL)
 \item{penalty}{separate penalty factors applied to each coefficient, of length \code{splineDf}.}
 }
 \value{
-The function returns the regularization parameter.
+The function returns the regularization parameter corresponding to the desired degrees of freedom.
 }
 \description{
 This function computes the regularization parameter corresponding to the given degrees of freedom.

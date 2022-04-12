@@ -2,17 +2,15 @@ Package: LinCDE
 Type: Package
 Title: Conditional Density Estimation via Lindsey's Method and Boosting
 Version: 0.2.1
-Date: 2022-3-3
+Date: 2022-4-12
 Authors@R: c(person("Zijun", "Gao", role = c("aut","cre"), email = "zijungao@stanford.edu"),
 	     person("Trevor", "Hastie", role=c("aut")))
 Description: Implementation of LinCDE boosting: Conditional Density Estimation via Lindsey's Method. More details can be found in the paper.
 License: GPL-2
 Encoding: UTF-8
-LazyData: true
 RoxygenNote: 7.1.2
 LinkingTo: Rcpp
-Imports: randomForest, Rcpp, collections, gbm, glmnet, latex2exp, lattice, caret, utils
+Imports: randomForest, Rcpp, collections, gbm, glmnet, lattice, caret, utils, grDevices, graphics, stats, methods
 Suggests: knitr, lars, testthat, xfun, rmarkdown
 Depends: R (>= 3.5.0)
 VignetteBuilder: knitr
-Author: Zijun Gao [aut]

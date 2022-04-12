@@ -16,8 +16,8 @@ importanceScore(model, d, n.trees = 1, var.names = NULL)
 \item{var.names}{vector of variable names.}
 }
 \value{
-The function returns a length \code{d} vector of covariate importances.
+The function returns a vector of covariate importances.
 }
 \description{
-This function computes the importance score for a LinCDE boosting model.
+This function computes the importance scores for a LinCDE boosting model.
 }

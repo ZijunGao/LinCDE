@@ -48,7 +48,7 @@ IntegerVector orderIndex(NumericVector arr) {
 //'
 //' @return The function returns \code{splitVar}: the index of the variable to split at; \code{splitVal}: the cut-point of the split; \code{improvement}: the contribution of the split to the objective.
 //' @export
-//[[Rcpp::export]]
+// [[Rcpp::export]]
 NumericVector LinCDESplit(const NumericMatrix& X, const IntegerVector& yIndex,
                           const NumericMatrix& cellProb, const NumericMatrix& z,
                           const NumericMatrix& covMatrixInv,

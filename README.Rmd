@@ -12,13 +12,13 @@ knitr::opts_chunk$set(
 )
 ```
 
-# LinCDE
+# Overview
 
 <!-- badges: start -->
 <!-- badges: end -->
 
 
-Conditional density estimation is a fundamental problem in statistics, with various scientific and practical applications such as genetics and economics. We propose a conditional density estimator based on tree boosting and Lindsey's method (LinCDE). LinCDE admits flexible modeling of the density family and captures distributional characteristics like modality and shape. In particular, LinCDE always produces smooth and non-negative density estimates. Furthermore, in the presence of nuisances, LinCDE identifies the influential covariates to the response distribution.
+Conditional density estimation is a fundamental problem in statistics, with various scientific and practical applications such as genetics and economics. We propose a conditional density estimator based on tree boosting and Lindsey's method (LinCDE). LinCDE admits flexible modeling of the density family and captures distributional characteristics like modality and shape. In particular, LinCDE always produces smooth and non-negative density estimates. Furthermore, in the presence of nuisance features, LinCDE identifies the influential covariates to the response distribution.
 
 
 ## Installation
@@ -27,14 +27,14 @@ You can install the development version of LinCDE from [GitHub](https://github.c
 
 ```{r installation}
 # install.packages("devtools")
-# devtools::install_github("ZijunGao/LinCDE")
+# devtools::install_github("ZijunGao/LinCDE", build_vignettes = TRUE)
 ```
 
 ## Example
 
-Below is a basic example of using LinCDE for conditional mean estimation. 
+Below is a basic example of using LinCDE for conditional mean estimation. We generate data $(y, X)$ where the conditional distributions of $y$ are Gaussian with different means and variances. The conditional mean depends on $X_1$ and $X_2$, and the conditional variance depends on $X_2$. 
 
-```{r example, fig.height=10, fig.width = 10, fig.align="center"}
+```{r example}
 library(LinCDE)
 # true conditional density function; LGD stands for locally Gaussian design
 density.LGD = function(X, y = NULL){
@@ -45,19 +45,27 @@ density.LGD = function(X, y = NULL){
     y = 0.5 * X[, 1] + X[, 1] * X[, 2] + rnorm(dim(X)[1], 0, 1) * (0.5 + 0.25 * X[ ,2])
   }
 }
-# feature points for visualization
-d = 20; XProfile = matrix(0, nrow = 3^2, ncol = d); colnames(XProfile) = paste("X", seq(1,d), sep = "")
-X1 = X2 = c(-0.6,0,0.6); XProfile[, c(1,2)] = as.matrix(expand.grid(X1, X2))
 
 # training data
 set.seed(100)
-n = 1000; X = matrix(runif(n * d, -1, 1), ncol = d); colnames(X) = paste("X", seq(1,d), sep = "")
+n = 1000; d = 20
+X = matrix(runif(n * d, -1, 1), ncol = d); colnames(X) = paste("X", seq(1,d), sep = "")
 y.LGD = density.LGD(X)
+```
 
-# fitting a LinCDE boost model
+We fit a LinCDE model with default hyper-parameters. Details of hyper-parameter tuning are discussed in the vignette.
+```{r example fit}
+# fit a LinCDE boost model
 model.example = LinCDE.boost(X = X, y = y.LGD, verbose = F)
+```
 
-# visualizing LinCDE boost model's predictions at the selected feature points
+We plot the estimated conditional densities from LinCDE against the true conditional densities at $9$ landmarks. LinCDE's fit is reasonably close to the truth.
+```{r example plot, fig.height=10, fig.width = 10, fig.align="center"}
+# landmarks for visualization
+XProfile = matrix(0, nrow = 3^2, ncol = d); colnames(XProfile) = paste("X", seq(1,d), sep = "")
+X1 = X2 = c(-0.6,0,0.6); XProfile[, c(1,2)] = as.matrix(expand.grid(X1, X2))
+
+# visualize LinCDE boost model's predictions at the landmarks
 densityPlot(X = XProfile, trueDensity = density.LGD, model = model.example)
 ```
 

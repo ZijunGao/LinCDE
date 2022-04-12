@@ -2,6 +2,10 @@
 #'
 #' This function implements LinCDE boosting: a boosting algorithm of conditional density estimation with shallow LinCDE trees as base-learners.
 #'
+#' @importFrom stats aggregate dnorm glm lm poisson qchisq quantile rnorm runif sd
+#' @importFrom utils tail
+#' @importFrom methods is
+#'
 #' @param X input matrix, of dimension nobs x nvars; each row represents an observation vector.
 #' @param y response vector, of length nobs.
 #' @param splitPoint a list of candidate splits of length nvars or a scalar/vector of candidate split numbers. If \code{splitPoint} is a list, each object is a vector corresponding to a variable's candidate splits (including the left and right endpoints). The list's objects should be ordered the same as X's columns. An alternative input is candidate split numbers, a scalar if all variables share the same number of candidate splits, a vector of length nvars if variables have different numbers of candidate splits. If candidate split numbers are given, each variable's range is divided into \code{splitPoint-1} intervals containing approximately the same number of observations. Default is 20. Note that if a variable has fewer unique values than the desired number of intervals, split intervals corresponding to unique values are created. The minimal accepted \code{splitPoint} is 3.
@@ -17,11 +21,12 @@
 #' @param shrinkage the shrinkage parameter applied to each tree in the expansion, value in (0,1]. Default is 0.1.
 #' @param subsample subsample ratio of the training samples in (0,1]. Default is 1.
 #' @param centering  a logical value. If \code{TRUE}, a conditional mean model is fitted first, and LinCDE boosting is applied to the residuals. The centering is recommended for responses whose conditional support varies wildly. See the LinCDE vignette for examples. Default is \code{FALSE}.
-#' @param centeringMethod a character or a function specifying the conditional mean estimator. If \code{centeringMethod = "linearRegression"}, a regression model is fitted to the response. If \code{centeringMethod = "randomForest"}, a random forest model is fitted. If \code{centeringMethod} is a function, the call \code{centeringMethod(y, X)} should return a conditional mean model with a predict function. Default is "randomForest". Applies only to \code{centering = TRUE}.
+#' @param centeringMethod a character or a function specifying the conditional mean estimator. If \code{centeringMethod = "linearRegression"}, a regression model is fitted to the response. If \code{centeringMethod = "randomForest"}, a random forest model is fitted. Hyperparameters used by the centering method can be directly fed to LinCDE.boost, such as \code{nodesize = 10} for \code{centeringMethod = "randomForest"}. If \code{centeringMethod} is a function, the call \code{centeringMethod(y, X)} should return a conditional mean model with a predict function. Default is "randomForest". Applies only to \code{centering = TRUE}.
 #' @param minY the user-provided left end of the response range. If \code{centering} is \code{TRUE}, \code{minY} is ignored. Default is NULL.
 #' @param maxY the user-provided right end of the response range. If \code{centering} is \code{TRUE}, \code{maxY} is ignored. Default is NULL.
 #' @param alpha a hyperparameter in (0,1] to early stop the boosting. A smaller \code{alpha} is more likely to induce early stopping. If \code{alpha = 1}, no early stopping will be conducted. Default is 0.2.
 #' @param verbose a logical value. If \code{TRUE}, progress and performance are printed. Default is \code{TRUE}.
+#' @param ... other parameters, such as hyperparameters to be passed to the conditional mean estimator.
 #'
 #' @return This function returns a LinCDE object consisting of a list of values.
 #' \itemize{
@@ -36,14 +41,14 @@
 #' }
 #'
 #' @export
-LinCDE.boost = function(y, X = NULL, splitPoint = 20, basis = "nsTransform", splineDf = 10, minY = NULL, maxY = NULL, numberBin = 40, df = 4, penalty = NULL, prior = "Gaussian", depth = 1, n.trees = 100, shrinkage = 0.1, terminalSize = 20, alpha = 0.2, subsample = 1, centering = FALSE, centeringMethod = "randomForest", verbose = TRUE){
+LinCDE.boost = function(y, X = NULL, splitPoint = 20, basis = "nsTransform", splineDf = 10, minY = NULL, maxY = NULL, numberBin = 40, df = 4, penalty = NULL, prior = "Gaussian", depth = 1, n.trees = 100, shrinkage = 0.1, terminalSize = 20, alpha = 0.2, subsample = 1, centering = FALSE, centeringMethod = "randomForest", verbose = TRUE, ...){
   # pre-process and initialization
   result = list(); result$depth = depth; result$shrinkage = shrinkage; result$basis = basis; result$centering = centering; result$centeringMethod = centeringMethod; result$y = y
   n = length(y); if(n < terminalSize){stop("insufficient number of samples")}
   if(is.null(X)){depth = 0; X = matrix(runif(n), nrow = n, ncol = 1); colnames(X) = "pseudoX"}
 
   if((sum(is.na(X)) + sum(is.na(y))) > 0){stop("please remove NAs from the input y, X")}
-  if("data.frame" %in% class(X)){
+  if(is(X, "data.frame")){
     if(sum(!lapply(X, class) %in% c("numeric", "integer")) > 0){stop("currently only numeric covariates are allowed")}
     X = as.matrix(X)}
   if(is.null(dim(X))){X = matrix(X, ncol = 1)}
@@ -58,7 +63,7 @@ LinCDE.boost = function(y, X = NULL, splitPoint = 20, basis = "nsTransform", spl
   if(is.character(basis)){if(basis == "Gaussian"){splineDf = 2}}
   if(is.null(df)){df = splineDf}
   if(is.null(penalty)){penalty = rep(1,splineDf)}
-  if(class(splitPoint) != "list"){
+  if(!is(splitPoint, "list")){
     if(splitPoint < 3){stop("splitPoint should be >= 3")}
     splitPoint = constructSplitPoint(X, splitPoint)
   }
@@ -86,14 +91,14 @@ LinCDE.boost = function(y, X = NULL, splitPoint = 20, basis = "nsTransform", spl
   initialLoglike = mean(log(cellProb0[yIndex])) - log(h)
 
   if(centering){
-    if(class(centeringMethod) == "character"){
-      if(centeringMethod == "randomForest"){
-        meanModel = randomForest::randomForest(y = y, x = X)
+    if(is(centeringMethod, "character")){
+      if(is(centeringMethod, "randomForest")){
+        meanModel = randomForest::randomForest(y = y, x = X, ...)
       } else if (centeringMethod == "linearRegression"){
         meanModelData= as.data.frame(cbind(y, X)); colnames(meanModelData) = c("y", colnames(X))
-        meanModel = lm(y ~ ., data = meanModelData)
+        meanModel = lm(y ~ ., data = meanModelData, ...)
       }
-    }else if(class(centeringMethod) == "function"){meanModel = centeringMethod(y, X)}
+    }else if(is(centeringMethod, "function")){meanModel = centeringMethod(y, X)}
     result$centeringModel = meanModel
     yPredict = predict(meanModel); y = y - yPredict
     y = c(y, 1.02*min(y)-0.02*max(y), 1.02*max(y)-0.02*min(y))
@@ -124,7 +129,7 @@ LinCDE.boost = function(y, X = NULL, splitPoint = 20, basis = "nsTransform", spl
   } else {lambda = 0; print("no ridge penalty is used")}
 
   # prior
-  if(class(prior) == "character"){
+  if(is(prior, "character")){
     if(prior == "uniform"){
       cellProb = matrix(1/numberBin, nrow = n, ncol = numberBin)
       priorFunction = function(XTest, yTest){
@@ -146,7 +151,7 @@ LinCDE.boost = function(y, X = NULL, splitPoint = 20, basis = "nsTransform", spl
         result=cellProb[cbind(rep(1,length(yTest)), yTestIndex)]/h; return(result)
       }
     }
-  } else if (class(prior) == "function"){
+  } else if (is(prior, "function")){
     cellProb = t(matrix(prior(X = X[rep(seq(1,n),rep(numberBin, n)),,drop = FALSE], y = rep(splitMidPointY, n)), nrow = numberBin))
     cellProb = diag(1/apply(cellProb, 1, sum)) %*% cellProb; priorFunction = prior
   }
