@@ -1,11 +1,11 @@
 Package: LinCDE
 Type: Package
 Title: Conditional Density Estimation via Lindsey's Method and Boosting
-Version: 0.2.1
+Version: 0.2.2
 Date: 2022-4-12
 Authors@R: c(person("Zijun", "Gao", role = c("aut","cre"), email = "zijungao@stanford.edu"),
 	     person("Trevor", "Hastie", role=c("aut")))
-Description: Implementation of LinCDE boosting: Conditional Density Estimation via Lindsey's Method. More details can be found in the paper.
+Description: Implementation of LinCDE boosting: Conditional Density Estimation via Lindsey's Method. More details can be found in Gao and Hastie (2022) <https://jmlr.org/papers/v23/21-0840.html>.
 License: GPL-2
 Encoding: UTF-8
 RoxygenNote: 7.1.2

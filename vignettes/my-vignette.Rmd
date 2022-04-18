@@ -79,13 +79,17 @@ yTest.LGD = density.LGD(XTest)
 
 The lattice plot below visualizes the true conditional densities at $9$ landmark covariate values. According to the data generation mechanism, $X_1$ and $X_2$ influence the response's mean, $X_2$ also influences the response's variance, and other covariates are nuisance to the response distribution. The landmark covariates differ in $X_1$ and $X_2$. 
 
-```{r true density plot, fig.height=6, fig.width = 6, fig.align="center"}
+```{r true density plot, out.width="60%", fig.align="center", eval = F}
 # landmarks for visualization
 XProfile = matrix(0, nrow = 3^2, ncol = d); colnames(XProfile) = paste("X", seq(1,d), sep = "")
 X1 = X2 = c(-0.6,0,0.6); XProfile[, c(1,2)] = as.matrix(expand.grid(X1, X2))
 
 # true conditional density plot
 densityPlot(X = XProfile, trueDensity = density.LGD, minY = -3, maxY = 3, factor.levels = paste("X1=", XProfile[,1], ", X2=", XProfile[,2],  sep = ""))
+```
+
+```{r true density plot (hidden), out.width="60%", fig.align="center", echo = F}
+knitr::include_graphics("./figures/LGDTrueDensityPlot.png", error = FALSE)
 ```
 
 ## Tuning
@@ -110,13 +114,8 @@ predict.LGD.D2 = predict(model.LGD.D2, X = XVal, y = yVal.LGD, densityOnly = FAL
 ```
 
 
-```{r depth (hidden), echo = FALSE, fig.height=6, fig.width = 6, fig.align="center"}
-predict.LGD.D1 = readRDS(file = "./data/predictLGDD1.rds")
-predict.LGD.D2 = readRDS(file = "./data/predictLGDD2.rds") 
-
-plot(predict.LGD.D1$testLogLikelihoodHistory, main = "LGD", xlab = "n.trees", ylab = "log-likeihood", type = "l", lwd = 3, ylim = c(-1.05, -0.75))
-lines(predict.LGD.D2$testLogLikelihoodHistory, col = "blue", lwd = 3)
-legend("bottomright", legend = c("depth = 1", "depth = 2"), col = c("black", "blue"), lwd = 3)
+```{r depth (hidden), echo = FALSE, out.width= "60%", fig.align="center"}
+knitr::include_graphics("./figures/LGDLoglikelihoodPlot.png", error = FALSE)
 ```
 
   * _depth_: the number of splits of each LinCDE tree. We apply LinCDE boost with a grid of depths. For each depth, we choose the number of iterations as above and record the associated validation log-likelihood. We choose the depth with the maximal validation log-likelihood. 
@@ -163,11 +162,11 @@ We print the trained LinCDE model which gives us the model formula, crucial hype
 ```{r LinCDE boost model, eval = FALSE}
 # tuned LinCDE boost model
 model.LGD.final = LinCDE.boost(y = y.LGD, X = X, basis = "Gaussian", depth = 3, n.trees = 300, shrinkage = 0.02)
+print(model.LGD.final)
 ```
 
 ```{r LinCDE boost model (hidden), echo = FALSE}
-model.LGD.final = readRDS(file = "./data/modelLGDFinal.rds") # training log-like: -0.677
-print(model.LGD.final)
+(model.LGD.final.print = readRDS(file = "./data/modelLGDFinalPrint.rds"))
 ```
 
 
@@ -206,14 +205,14 @@ oracle = mean(log(density.LGD(X = XTest, y = yTest.LGD)))
   (oracle - predict.LGD.null$testLogLikelihood))
 ```
 
-
 ```{r test performance (hidden), echo = FALSE}
-predict.LGD.final = readRDS(file = "./data/predictLGDFinal.rds")
-predict.LGD.null = readRDS(file = "./data/predictLGDNull.rds")
+predict.LGD.null.short = readRDS(file = "./data/predictLGDNullShort.rds")
+predict.LGD.final.short = readRDS(file = "./data/predictLGDFinalShort.rds")
+
 oracle = mean(log(density.LGD(X = XTest, y = yTest.LGD)))
 relativeImprovement =   
-  (predict.LGD.final$testLogLikelihood - predict.LGD.null$testLogLikelihood)/  
-  (oracle - predict.LGD.null$testLogLikelihood) # 80.9%; 83.2%
+  (predict.LGD.final.short$testLogLikelihood - predict.LGD.null.short$testLogLikelihood)/  
+  (oracle - predict.LGD.null.short$testLogLikelihood) # 80.9%; 83.2%
 print(paste("relative improvement: ", signif(100 * relativeImprovement, digits = 3), "%", sep = ""))
 ```
 
@@ -223,20 +222,28 @@ When the true density is unknown, such as on a real dataset, the relative improv
 
 We plot the estimated conditional densities against the truth at the above $9$ selected feature points. The estimated conditional densities are close to the truth.
 
-```{r estimated density plot,fig.height=6, fig.width = 6, fig.align="center"}
+```{r estimated density plot, out.width = "60%", fig.align="center", eval = F}
 # conditional density plot
 densityPlot(X = XProfile, trueDensity = density.LGD, model = model.LGD.final, factor.levels = paste("X1=", XProfile[,1], ", X2=", XProfile[,2],  sep = ""))
 ```
 
+```{r estimated density plot (hidden), out.width = "60%", fig.align="center", echo = F}
+knitr::include_graphics("./figures/LGDFinalDensityPlot.png", error = FALSE)
+```
+
 ## Importance evaluation
 
-To identify the influential covariates, we plot the importance scores for each covariate. The importance score is defined as in random forests and graient boosting. The importance scores are computed from the training data and record how much each covariate contributes to the improvement of the objective. 
+To identify the influential covariates, we plot the importance scores for each covariate. The importance score is defined as in random forests and graient boosting. The importance scores are computed from the training data and record how much each covariate contributes to the improvement of the objective.
 
 In the above example, the importance score barplot indicates that the first two candidates contribute the most to the improvement in the objective, which agrees with the underlying density model.
 
-```{r importance plot LGD, fig.height=6, fig.width = 6, fig.align="center"}
+```{r importance plot LGD, out.width = "60%", fig.align="center", eval = F}
 # relative influence plot
 importance.LGD = summary(model.LGD.final, cBars = 8)
+```
+
+```{r importance plot LGD (hidden), out.width = "60%", fig.align="center", echo = F}
+knitr::include_graphics("./figures/LGDFinalImportancePlot.png", error = FALSE)
 ```
 
 # More examples
@@ -244,7 +251,7 @@ The above example shows LinCDE boost's ability to capture location and scale cha
 
 ## Modality example
 
-For modality, we generate locally Gaussian mixture responses if $X_2 \le 0.2$ and locally Gaussian responses if $X_2 > 0.2$. Meanwhile, we let the responses' locations depend on $X_1$. We follow the aforementioned workflow and set the hyper-parameters at _shrinkage = 0.05_, _depth = 3_, _n.trees = 200_. We use a larger _df_ to learn the bi-modality. The rest of the parameters are at default values. 
+For modality, we generate locally Gaussian mixture responses if $X_2 \le 0.2$ and locally Gaussian responses if $X_2 > 0.2$. Meanwhile, we let the responses' locations depend on $X_1$. We follow the aforementioned workflow and set the hyper-parameters at _shrinkage = 0.05_, _depth = 3_, _n.trees = 200_. We use a larger _df_ to learn the bi-modality. The rest of the parameters are at default values.
 
 ```{r modality example, eval=FALSE}
 # data generation mechanism
@@ -268,46 +275,25 @@ model.modality = LinCDE.boost(y = y.modality, X = X, df = 8,
                                  depth = 3, n.trees = 200, shrinkage = 0.05)
 ```
 
-```{r modality example (hidden), echo = FALSE}
-density.modality = function(X, y = NULL){
-  if(is.null(dim(X))){X = matrix(X, nrow = 1)}
-  if(!is.null(y)){
-    dens = dnorm(y, mean = 0.25 * X[,1], sd = 0.8)
-    index = which(X[,2] < 0.2)
-    dens[index] = 0.5 * dnorm(y[index], mean = 0.25 * X[index,1] + 0.8, sd = 0.3) + 0.5 * dnorm(y[index], mean = 0.25 * X[index, 1] - 0.8, sd = 0.3)
-    return(dens)
-  }else{
-    n = dim(X)[1]
-    groupIndex = rbinom(n, 1, 0.5)
-    y = groupIndex * rnorm(n, -0.8, 0.3) + (1-groupIndex) * rnorm(n, 0.8, 0.3)
-    y = 0.25 * X[,1] + (X[,2] <= 0.2) * y + (X[,2] > 0.2) * rnorm(n, 0, 0.8)
-  }
-}
-
-model.modality = readRDS(file = "./data/modelModality.rds") #-0.979
-```
-We compare the estimated conditional densities against the truth at the $9$ selected feature points (left figure below). The estimated conditional densities are clearly bi-modal for $X_2 = -0.6$ and $X_2 = 0$. For $X_2 = 0.6$, the estimated conditional densities are largely Gaussian with mild curvatures in the middle. 
+We compare the estimated conditional densities against the truth at the $9$ selected feature points (left figure below). The estimated conditional densities are clearly bi-modal for $X_2 = -0.6$ and $X_2 = 0$. For $X_2 = 0.6$, the estimated conditional densities are largely Gaussian with mild curvatures in the middle.
 
 We also plot the importance scores (right figure below). In this setting, $X_1$ and $X_2$ are the most influential covariates, consistent with the data generation mechanism.
 
-```{r modality plot,fig.height=6, fig.width = 6, fig.show='hold', out.width="50%"}
-# conditional density plot 
-densityPlot(X = XProfile, trueDensity = density.modality, model = model.modality, factor.levels = paste("X1=", XProfile[,1], ", X2=", XProfile[,2],  sep = ""))
-
-# relative influence plot
-importance.modality = summary(model.modality, cBars = 8)
+```{r modality plot,fig.height=6, fig.width = 6, fig.show='hold', out.width="50%", echo = F}
+knitr::include_graphics("./figures/modalityDensityPlot.png", error = FALSE)
+knitr::include_graphics("./figures/modalityImportancePlot.png", error = FALSE)
 ```
 
 ## Symmetry example
 
-For symmetry, we generate asymmetric Gaussian mixture responses. If $X_2 > 0$, the right modal is sharper; if $X_2 < 0$, the left modal is sharper. The larger the $|X_2|$ is, the more asymmetric the conditional distribution is. Meanwhile, we let the responses' locations depend on $X_1$. We follow the aforementioned workflow and set the hyper-parameters at _shrinkage = 0.1_, _depth = 3_, _n.trees = 200_, and _df = 8_. The rest parameters are at default values. 
+For symmetry, we generate asymmetric Gaussian mixture responses. If $X_2 > 0$, the right modal is sharper; if $X_2 < 0$, the left modal is sharper. The larger the $|X_2|$ is, the more asymmetric the conditional distribution is. Meanwhile, we let the responses' locations depend on $X_1$. We follow the aforementioned workflow and set the hyper-parameters at _shrinkage = 0.1_, _depth = 3_, _n.trees = 200_, and _df = 8_. The rest parameters are at default values.
 
 ```{r skewness example, eval = FALSE}
 # data generation mechanism
 density.skewness = function(X, y = NULL){
   if(is.null(dim(X))){X = matrix(X, nrow = 1)}
   if(!is.null(y)){
-    dens = 0.5 * dnorm(y, mean = 0.5 * X[, 1] + 0.8, sd = 0.5 + 0.45 * X[, 2]) +   
+    dens = 0.5 * dnorm(y, mean = 0.5 * X[, 1] + 0.8, sd = 0.5 + 0.45 * X[, 2]) +
     0.5 * dnorm(y, mean = 0.5 * X[, 1] - 0.8, sd = 0.5 - 0.45 * X[, 2])
   }else{
     n = dim(X)[1]
@@ -322,31 +308,13 @@ model.skewness = LinCDE.boost(X = X, y = y.skewness, df = 8,
                                  depth = 3, n.trees = 200, shrinkage = 0.1)
 ```
 
-```{r skewness example (hidden), echo = FALSE}
-density.skewness = function(X, y = NULL){
-  if(is.null(dim(X))){X = matrix(X, nrow = 1)}
-  if(!is.null(y)){
-    dens = 0.5 * dnorm(y, mean = 0.5 * X[, 1] + 0.8, sd = 0.5 + 0.45 * X[, 2]) +   
-    0.5 * dnorm(y, mean = 0.5 * X[, 1] - 0.8, sd = 0.5 - 0.45 * X[, 2])
-  }else{
-    n = dim(X)[1]
-    groupIndex = rbinom(n, 1, 0.5)
-    y = groupIndex * rnorm(n, 0.8, 0.5 + 0.45 * X[, 2]) + (1 - groupIndex) * rnorm(n, -0.8, 0.5 - 0.45 * X[, 2]) + 0.5 * X[, 1]
-  }
-}
-model.skewness = readRDS(file = "./data/modelSkewness.rds") # training log-like: -1.08
-```
-
 We compare the estimated conditional densities against the truth at $9$ landmarks (left figure below). The estimated conditional densities are right-skewed for $X_2 = 0.6$, left-skewed for $X_2 = -0.6$, and symmetric for $X_2 = 0$.
 
 As for the importance scores (right figure below), $X_1$ and $X_2$ are correctly identified as important covariates.
 
-```{r skewness plot, fig.height=6, fig.width = 6, fig.show='hold', out.width="50%"}
-# conditional density plot
-densityPlot(X = XProfile, trueDensity = density.skewness, model = model.skewness, factor.levels = paste("X1=", XProfile[,1], ", X2=", XProfile[,2],  sep = ""))
-
-# relative influence plot
-importance.skewness = summary(model.skewness, cBars = 8)
+```{r skewness plot, fig.height=6, fig.width = 6, fig.show='hold', out.width="50%", echo = F}
+knitr::include_graphics("./figures/skewnessDensityPlot.png", error = FALSE)
+knitr::include_graphics("./figures/skewnessImportancePlot.png", error = FALSE)
 ```
 
 ## Centering example
@@ -361,7 +329,7 @@ In the following example, we generate locally Gaussian mixture responses if $X_2
 density.centering = function(X, y = NULL){
   if(is.null(dim(X))){X = matrix(X, nrow = 1)}
   if(!is.null(y)){
-    dens = dnorm(y, mean = 4 * X[, 1], sd = 0.8) 
+    dens = dnorm(y, mean = 4 * X[, 1], sd = 0.8)
     index = which(X[, 2] < 0.2)
     dens[index] = (0.5 * dnorm(y[index], mean = 4 * X[index, 1] + 0.8, sd = 0.3) + 0.5 * dnorm(y[index], mean = 4 * X[index, 1] - 0.8, sd = 0.3))
     return(dens)
@@ -386,49 +354,26 @@ model.centering.no = LinCDE.boost(X = X,  y = y.centering, depth = 2, n.trees = 
 model.centering.OLS = LinCDE.boost(X = X, y = y.centering, df = 8, depth = 2, n.trees = 200, shrinkage = 0.02, centering = TRUE, centeringMethod = "linearRegression")
 ```
 
-```{r centering model (hidden), echo = FALSE}
-density.centering = function(X, y = NULL){
-  if(is.null(dim(X))){X = matrix(X, nrow = 1)}
-  if(!is.null(y)){
-    dens = dnorm(y, mean = 4 * X[, 1], sd = 0.8) 
-    index = which(X[, 2] < 0.2)
-    dens[index] = (0.5 * dnorm(y[index], mean = 4 * X[index, 1] + 0.8, sd = 0.3) + 0.5 * dnorm(y[index], mean = 4 * X[index, 1] - 0.8, sd = 0.3))
-    return(dens)
-  }else{
-    n = dim(X)[1]
-    groupIndex = rbinom(n, 1, 0.5)
-    y = groupIndex * rnorm(n, -0.8, 0.3) + (1 - groupIndex) * rnorm(n, 0.8, 0.3)
-    y = 4 * X[, 1] + (X[, 2] <= 0.2) * y + (X[, 2] > 0.2) * rnorm(n, 0, 0.8)
-  }
-}
-model.centering.no = readRDS(file = "./data/modelCenteringNo.rds") # training log-like: -1.39
-model.centering.OLS = readRDS(file = "./data/modelCenteringOLS.rds") # training log-like: -1.07
-```
-
-We compare LinCDE boost with and without centering. We plot the estimated conditional densities at $9$ landmark covariate values. 
+We compare LinCDE boost with and without centering. We plot the estimated conditional densities at $9$ landmark covariate values.
 LinCDE boost without centering does not capture the bi-modality structure. LinCDE boost with centering reflects the bi-modality structure for $X_2 = 0$ or $X_2 = -0.6$.
-```{r centering density plot, fig.show="hold", out.width="50%", fig.height=6, fig.width = 6}
-# conditional density plot
-# without centering
-densityPlot(X = XProfile, trueDensity = density.centering, model = model.centering.no, factor.levels = paste("X1=", XProfile[,1], ", X2=", XProfile[,2],  sep = ""), main = "Estimated and true conditional densities (without centering)") 
-# with centering
-densityPlot(X = XProfile, trueDensity = density.centering,  model = model.centering.OLS, factor.levels = paste("X1=", XProfile[,1], ", X2=", XProfile[,2],  sep = ""), main = "Estimated and true conditional densities (with centering)")
+
+```{r centering density plot, fig.show="hold", out.width="50%", fig.height=6, fig.width = 6, echo = F}
+knitr::include_graphics("./figures/centeringNoDensityPlot.png", error = FALSE)
+knitr::include_graphics("./figures/centeringOLSDensityPlot.png", error = FALSE)
 ```
 
 We also compare the relative influence plots. For LinCDE boost without centering, most efforts are spent on learning the influence of $X_1$ on the response's location. For LinCDE boost with centering, we stack importances from centering (in red) and beyond centering (in blue). $X_1$ accounts for most of the importances in the centering, and $X_2$ is the most important covariate beyond centering. Currently the decomposition of importances into centering and beyond centering is only available for _centeringMethod = "linearRegression"_ or _centeringMethod = "randomForest"_.
-```{r without centering density plot, fig.show="hold", out.width="50%", fig.height=6, fig.width = 6}
-# relative influence plot
-# without centering
-importance.centering.no = summary(model.centering.no, cBars = 8, main = "Without centering")
-# with centering
-importance.centering.OLS = summary(model.centering.OLS, cBars = 8, main = "With centering")
+
+```{r without centering density plot, fig.show="hold", out.width="50%", fig.height=6, fig.width = 6, echo = F}
+knitr::include_graphics("./figures/centeringNoImportancePlot.png", error = FALSE)
+knitr::include_graphics("./figures/centeringOLSImportancePlot.png", error = FALSE)
 ```
 
 ## California housing example
 
 We read in the benchmark dataset California Housing data. The dataset collects California housing prices and $8$ covariates from the $1990$ Census. More details are available at the [website](https://developers.google.com/machine-learning/crash-course/california-housing-data-description). We remove windsorized responses, and divide the responses by $1000$. For time efficiency, we randomly select $1000$ observations as the training data.
 ```{r CA housing data}
-cahousing=read.csv("./data/cahousing.csv", header = T) 
+cahousing=read.csv("./data/cahousing.csv", header = T)
 y.cahousing = cahousing[,1]; cahousing=cahousing[y.cahousing < max(y.cahousing),]
 y.cahousing = cahousing[,1]/1000
 X = data.matrix(cahousing[,-1])
@@ -446,38 +391,24 @@ We fit a simple LinCDE boost model with sufficient statistics $y$,$y^2$ as a sta
 model.cahousing.Gaussian = LinCDE.boost(y = y.cahousing[indexTrain], X=X[indexTrain,], basis = "Gaussian", depth=3, n.trees=150, terminalSize=50, shrinkage = 0.05, minY = 0, maxY = 510)
 ```
 
-```{r Gaussian fit (hidden), echo = F, fig.height=6, fig.width = 6, fig.align="center"}
-model.cahousing.Gaussian = readRDS(file = "./data/modelCahousingGaussian.rds") # training log-like: -5.45
-
-model.cahousing.Gaussian = readRDS(file = "./data/modelCahousingGaussian.rds") # training log-like: -5.45
-```
-
 Next we use $10$ transformed natural cubic splines with $6$ degrees of freedom to learn a more complicated LinCDE boost model.
 
 ```{r ns fit, eval = F}
 model.cahousing.ns = LinCDE.boost(y=y.cahousing[indexTrain],X=X[indexTrain,], basis = "nsTransform", depth=3, splineDf = 10, df = 6, n.trees=300, terminalSize=50, shrinkage = 0.05, minY = 0, maxY = 510, verbose = TRUE)
 ```
 
-```{r ns fit (hidden), echo = F, fig.height=6, fig.width = 6, fig.align="center"}
-model.cahousing.ns = readRDS(file = "./data/modelCahousingNs.rds") # training log-like: -5.25
-```
-
 We provide the relative influence plots. The importances computed by the two LinCDE boost models are similar: *MedInc* (median income) is the dominant covariate followed by *AveOccup* (average occupancy), *Longitude*, and *Latitude*.
 
-```{r importance plot CA housing, fig.show="hold", out.width="50%", fig.height=6, fig.width = 6}
-# relative influence plot
-par(mar = c(5,6,2,2))
-# Gaussian basis
-importance.cahousing.Gaussian = summary(model.cahousing.Gaussian, cBars = 8, main = "Gaussian basis")
-# natural spline basis
-importance.cahousing.ns = summary(model.cahousing.ns, cBars = 8, main = "Natural spline basis")
+```{r importance plot CA housing, fig.show="hold", out.width="50%", echo = F}
+knitr::include_graphics("./figures/cahousingGaussianImportancePlot.png", error = FALSE)
+knitr::include_graphics("./figures/cahousingNsImportancePlot.png", error = FALSE)
 ```
 
-We plot the conditional density estimates for different (*MedInc*, *AveOccup*) pairs. Since we don't know the underlying truth, we plot the histograms of the samples with similar covariate values as our reference. (The similarity of samples to a target point is measured by the covariate Mahalanobis distance weighted by the covariate importances from the LinCDE boost model.) 
+We plot the conditional density estimates for different (*MedInc*, *AveOccup*) pairs. Since we don't know the underlying truth, we plot the histograms of the samples with similar covariate values as our reference. (The similarity of samples to a target point is measured by the covariate Mahalanobis distance weighted by the covariate importances from the LinCDE boost model.)
 
 For both LinCDE boost models, the conditional densities shift to the right as the *MedInc* increases, and the spreads decrease as the *AveOccup* grows in the middle and right columns. For the LinCDE boost model with natural spline basis, the estimated conditional densities have diverse shapes beyond Gaussian. In local regions (indicated in the subtitles of panels) of $2.32$ ($20\%$ quantile) or $3.45$ ($50\%$ quantile) median incomes, the conditional distributions appear right-skewed. In regions of $3.45$ ($50\%$ quantile) median income and $2.36$ ($20\%$ quantile), $2.84$ ($50\%$ quantile) average occupancies, the conditional distributions have flatter peaks compared to the Gaussian distribution.
 
-```{r Gaussian plot, fig.show="hold", out.width="50%", fig.height=5, fig.width = 5}
+```{r Gaussian plot, fig.show="hold", out.width="50%", fig.height=5, fig.width = 5, eval = F}
 # landmarks for visualization
 X.MedInc = quantile(X[,"MedInc"],c(.2,.5,.8)) # 20%, 50%, 80% quantiles of MedInc
 X.AveOccup = quantile(X[,"AveOccup"],c(.2,.5,.8))  # 20%, 50%, 80% quantiles of AveOccup
@@ -489,33 +420,12 @@ yGrid = seq(0,510,length.out = 100) # response grid
 # Gaussian basis
 plot.cahousing.Gaussian = densityPlot(X = XGrid, yGrid = yGrid, model=model.cahousing.Gaussian, plot = FALSE)
 # natural spline basis
-plot.cahousing.ns = densityPlot(X=XGrid, yGrid = yGrid, model = model.cahousing.ns, plot = FALSE) 
+plot.cahousing.ns = densityPlot(X=XGrid, yGrid = yGrid, model = model.cahousing.ns, plot = FALSE)
 ```
 
 ```{r Gaussian plot 2, fig.show="hold", out.width="50%", fig.height=8, fig.width = 8, echo = F}
-# Mahalanobis distance weighted by importance
-XGrid.transform = XGrid
-XGrid.transform[,c("MedInc", "AveRooms", "AveBedrms", "Population", "AveOccup")] = log(XGrid[,c("MedInc", "AveRooms", "AveBedrms", "Population", "AveOccup")])
-
-importance.matrix = diag((mean(model.cahousing.Gaussian$importanceScore)/model.cahousing.Gaussian$importanceScore)^3)
-Sigma = diag((apply(X.transform, 2, quantile, 0.75) - apply(X.transform, 2, quantile, 0.25))^2)# Sigma = cov(x.transform)
-Sigma = importance.matrix %*% Sigma %*% importance.matrix
-
-# plot
-n.sub = c(rep(c(300,1000,1000),3))
-par(mfrow = c(3,3), oma = c(0, 0, 4, 0))
-for(i in c(7,8,9,4,5,6,1,2,3)){
-  dist.matrix = mahalanobis(X.transform, center = XGrid.transform[i,], cov = Sigma)
-  selectIndex = order(dist.matrix, decreasing = F)[1:n.sub[i]]
-  hist(y.cahousing[selectIndex], main = paste("MedInc ", round(XGrid[i,"MedInc"],2), ", ",  "AveOccup ", round(XGrid[i,"AveOccup"],2), sep = ""), xlab = "housing price",
-       ylab = "density", freq = FALSE, breaks = seq(0,510,length.out=20), ylim = c(0,0.015), xlim = c(0,max(y.cahousing)))
-  lines(plot.cahousing.Gaussian$y[plot.cahousing.Gaussian$group == i], plot.cahousing.Gaussian$density[plot.cahousing.Gaussian$group == i], lwd = 3, col = "red")
-}
-
-importance.matrix = diag((mean((model.cahousing.ns$importanceScore))/model.cahousing.ns$importanceScore)^3)
-Sigma = diag((apply(X.transform, 2, quantile, 0.75) - apply(X.transform, 2, quantile, 0.25))^2) # Sigma = cov(x.transform)
-Sigma = importance.matrix %*% Sigma %*% importance.matrix
-mtext("Gaussian basis", outer = TRUE, cex = 1.5, font = 2)
+knitr::include_graphics("./figures/cahousingGaussianDensityPlot.png", error = FALSE)
+knitr::include_graphics("./figures/cahousingNsDensityPlot.png", error = FALSE)
 ```
 
 ## Plug in your own data and have fun with LinCDE!
