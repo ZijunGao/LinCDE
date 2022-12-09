@@ -2,9 +2,7 @@
 
 This is a resubmission. In this version I have:
 
-* Reduced the package size to below 5 MB.
-
-* Added reference link to the method in the Description field.
+* Updated the vignettes to include the codes for reproducing the figures.
 
 ## R CMD check results
 
